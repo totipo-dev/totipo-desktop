@@ -22,6 +22,8 @@ public final class TokenBrowserPanel extends JPanel {
     private boolean rebuilding;
     private boolean closed;
     private final JButton edit = new JButton("Edit Token");
+    private final JButton resolve = new JButton("Resolve Conflict…");
+    private transient VaultView.MergeAction mergeAction;
     private transient VaultView.EditAction editAction;
     private boolean writeAvailable = true;
     private final JComboBox<String> alternatives = new JComboBox<>();
@@ -44,7 +46,13 @@ public final class TokenBrowserPanel extends JPanel {
         add(split, BorderLayout.CENTER);
         JPanel editing = new JPanel(new GridLayout(0, 1));
         editing.add(alternatives);
-        editing.add(edit);
+        editing.add(edit); editing.add(resolve); resolve.setVisible(false);
+        resolve.addActionListener(event -> {
+            if (!closed && writeAvailable && mergeAction != null && latest != null && selected != null) {
+                TokenState token = latest.token(selected).orElse(null);
+                if (token != null && token.hasConflict() && token.alternatives().size() >= 2) { mergeAction.open(latest, token); }
+            }
+        });
         add(editing, BorderLayout.SOUTH);
         edit.setEnabled(false);
         alternatives.setVisible(false);
@@ -109,10 +117,13 @@ public final class TokenBrowserPanel extends JPanel {
         writeAvailability(writeAvailable);
     }
 
+    public void onMerge(VaultView.MergeAction action) { Edt.require(); mergeAction = action; }
     public void onEdit(VaultView.EditAction action) { Edt.require(); editAction = action; }
     public void writeAvailability(boolean available) {
         Edt.require(); writeAvailable = available;
         TokenState token = selected == null || latest == null ? null : latest.token(selected).orElse(null);
+        resolve.setVisible(token != null && token.hasConflict() && token.alternatives().size() >= 2);
+        resolve.setEnabled(!closed && available && resolve.isVisible());
         alternatives.setEnabled(!closed && available);
         edit.setEnabled(!closed && available && token != null && !token.alternatives().isEmpty()
                 && (!token.hasConflict() || alternatives.getSelectedIndex() >= 0));
@@ -166,7 +177,7 @@ public final class TokenBrowserPanel extends JPanel {
     public void closing() {
         Edt.require();
         closed = true;
-        edit.setEnabled(false);
+        edit.setEnabled(false); resolve.setEnabled(false);
         totp.clear();
         latest = null;
         selected = null;

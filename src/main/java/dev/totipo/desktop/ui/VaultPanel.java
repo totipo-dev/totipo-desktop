@@ -54,6 +54,7 @@ public final class VaultPanel extends JPanel {
         progress.setIndeterminate(true);
     }
 
+    public void mergeAction(VaultView.MergeAction action) { browser.onMerge(action); }
     public void tokenActions(Runnable action, VaultView.EditAction edit) {
         Edt.require(); create.addActionListener(event -> action.run()); browser.onEdit(edit);
     }
@@ -66,7 +67,11 @@ public final class VaultPanel extends JPanel {
         Edt.require(); abandoned.setText(value
                 ? "One or more earlier token publications have unresolved persistence status." : " ");
     }
-    public void clearUncertainty() { Edt.require(); uncertainty.removeAll(); uncertainty.revalidate(); uncertainty.repaint(); }
+    public void clearUncertainty() {
+        Edt.require();
+        if (getRootPane() != null) { getRootPane().setDefaultButton(null); }
+        uncertainty.removeAll(); uncertainty.revalidate(); uncertainty.repaint();
+    }
     public void publicationUncertain(boolean isCreate, boolean busy, Runnable retry, Runnable stop) {
         clearUncertainty();
         JTextArea text = new JTextArea("Totipo could not determine whether this exact token operation received a durable acknowledgement. "
@@ -84,6 +89,32 @@ public final class VaultPanel extends JPanel {
         choices.add(retryButton); choices.add(stopButton);
         uncertainty.add(choices, BorderLayout.SOUTH);
         uncertainty.revalidate(); uncertainty.repaint();
+    }
+
+    public void additionalConflict(Runnable review, Runnable publish, Runnable cancel) {
+        clearUncertainty();
+        JTextArea text = new JTextArea("New relevant token information was observed before this merge could be published. Nothing from this merge has been published.");
+        text.setEditable(false); text.setLineWrap(true); text.setWrapStyleWord(true); text.setRows(2);
+        uncertainty.add(text, BorderLayout.CENTER);
+        JPanel choices = new JPanel();
+        String[] labels = {"Review latest and merge again", "Publish original resolution anyway", "Cancel"};
+        Runnable[] actions = {review, publish, cancel};
+        for (int i = 0; i < labels.length; i++) {
+            JButton button = new JButton(labels[i]); Runnable action = actions[i];
+            button.addActionListener(event -> action.run()); choices.add(button);
+        }
+        uncertainty.add(choices, BorderLayout.SOUTH); uncertainty.revalidate(); uncertainty.repaint();
+        JButton reviewButton = (JButton) choices.getComponent(0);
+        if (getRootPane() != null) { getRootPane().setDefaultButton(reviewButton); }
+        reviewButton.requestFocusInWindow();
+    }
+    public void mergePublicationUncertain(boolean original, boolean busy, Runnable retry, Runnable stop) {
+        publicationUncertain(false, busy, retry, stop);
+        JTextArea text = (JTextArea) ((BorderLayout) uncertainty.getLayout()).getLayoutComponent(BorderLayout.CENTER);
+        text.setText((original
+                ? "Totipo could not determine whether the original frozen merge resolution received durable acknowledgement."
+                : "Totipo could not determine whether this exact merge publication received durable acknowledgement.")
+                + "\nIt may already have persisted. Retry republishes the exact frozen bytes. Stop retrying does not undo publication or prove it failed.");
     }
 
     public void onRefresh(Runnable action) {

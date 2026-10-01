@@ -38,6 +38,7 @@ final class VaultWindowController {
             view.actions(this::refresh, this::close);
             view.tokenActions(() -> writes.open(latest, null,
                     "A new Create makes a distinct token; it is not a retry of an earlier uncertain publication."), writes::open);
+            view.mergeAction(writes::openMerge);
             view.showWindow();
             session.states().subscribe(subscriber);
         } catch (RuntimeException unexpected) {

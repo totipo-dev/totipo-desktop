@@ -1,6 +1,7 @@
 # Desktop architecture
 
-M2a adds manual token create/update and explicit publication retry/abandonment to
+M2b adds explicit field-oriented merge and frozen-resolution decisions to M2a
+manual token create/update and explicit publication retry/abandonment, building on
 M1a session/window lifecycle, observation/diagnostics and refresh, and M1b
 logical-token/TOTP browsing. The single-project
 Swing bootstrap and pinned composite dependency from M0 remain intact. Production
@@ -20,10 +21,11 @@ TotipoDesktop: invokeLater
             -> one StateSubscriber / states() subscription
             -> one serialized session executor
             -> at most the latest immutable VaultState reference
-            -> one TokenWriteController (editor OR uncertainty decision)
+            -> one TokenWriteController (create/update OR merge OR capability decision)
                  -> desktop TokenEditorPanel / owned modeless TokenEditDialog
                  -> captured base/alternative for an open editor
-                 -> at most one executor-owned PublicationRetry
+                 -> MergeEditorPanel with captured MergeInputs and submitted MergeDraft
+                 -> at most one executor-owned PartialResolution OR PublicationRetry
                  -> sticky non-secret abandoned-publication boolean
 ```
 
@@ -175,7 +177,7 @@ into completeness, uncertainty into success/failure, local publication into remo
 synchronization, or equal causal heads into semantic conflict. No automatic merge,
 retry or invented synchronization semantics are introduced.
 
-Merge/conflict resolution, search/filter/sort, password change, QR/URI import,
+Later work includes search/filter/sort, password change, QR/URI import,
 secret export, clipboard, keychain, remembered
 passwords, recent history, tray, shortcuts, theming, watchers, remote providers,
 installers and release publishing.
@@ -187,8 +189,10 @@ fake views/access/sessions and controlled publishers/latches. They test lifecycl
 outcomes, password validation/wiping, subscriber backpressure, terminal/cancel
 races, observation-only rendering, refresh, independent session close and shutdown
 during open/create. M1a fake states reject unexpected token/editing/TOTP methods;
-M2a adds public-interface write fakes. Real-NIO temporary-directory tests cover
-create/close/open/close, TOTP intervals, and desktop token create/update. Build/test also
+M2a adds public-interface write fakes; M2b adds merge/partial fakes and deterministic
+close barriers. Real-NIO temporary-directory tests cover
+create/close/open/close, TOTP intervals, desktop token create/update, and a real
+conflict created by historical concurrent updates then explicitly merged. Build/test also
 verify every production class is Java 17 classfile version 61. No new production or
 test dependencies were needed.
 
@@ -250,8 +254,8 @@ heads selected by that receiving state (or the alternative's captured heads).
 It does not parent unrelated alternatives, invoke a merge gate or resolve conflict.
 No head-level update, rebasing, winner selection or merge exists in this path.
 
-`TokenWriteController` admits one editor or uncertainty decision per window.
-Create/Edit disable throughout it; Refresh and ordinary state/TOTP delivery stay
+`TokenWriteController` admits one write workflow per window, including merge and
+partial-resolution decisions. Create/Edit/Resolve disable throughout it; Refresh and ordinary state/TOTP delivery stay
 available. Save validation occurs on EDT, then controls disable before one task
 is submitted to the existing session executor. Repeated clicks cannot queue more
 writes. There is no extra executor, subscription, polling or automatic retry.
@@ -266,7 +270,7 @@ writes. There is no extra executor, subscription, polling or automatic retry.
 | Failed(UNRESOLVED_FIELDS) | State definite non-publication without inventing missing values; retain editable form. |
 | Failed(SESSION_CLOSING) | Begin orderly window/session close; no retry choice. |
 | PublicationUncertain | Retire editor; keep exact retry capability on executor; show Retry exact publication / Stop retrying. May already be present in the vault. |
-| AdditionalConflict | Defensive invariant failure only: close the returned PartialResolution on executor, show generic internal failure, never publish it or expose merge choices. |
+| AdditionalConflict from create/update | Defensive invariant failure only: close the returned PartialResolution on executor, show generic internal failure, never publish it or expose merge choices. |
 
 The pinned publication attempt requests local refresh after Saved.
 The desktop does not request an additional refresh and never uses observation as
@@ -299,3 +303,128 @@ An in-flight task may install a returned successor on the executor; queued clean
 then releases it before session close. Late EDT callbacks check closing and never
 reopen an editor, reinstall uncertainty UI, or start another retry. Session close
 still invalidates core-owned handles, even if an unexpected cleanup failure occurs.
+
+
+## Explicit merge resolution (M2b)
+
+Resolve Conflict… is separate from Edit Alternative… and appears only for
+`hasConflict()` with at least two complete semantic alternatives. Equal heads,
+diagnostics, or unresolved references alone do not enable it. Unresolved references
+do not veto a real semantic conflict; the existing technical warning remains visible.
+Tombstoned alternatives are complete merge inputs, without any status preference.
+
+`MergeInputs` captures the exact receiving `VaultState`, `TokenState`, token ID
+through that token, complete alternative list and descriptive `TokenCompetition`
+when the workflow opens. Later state emissions continue to drive the browser/TOTP
+but never rewrite the capture. Input selection initially includes every captured
+alternative, with literal descriptors and head IDs. Alternative numbers express no
+priority. At least two must be selected; changing a single alternative belongs to
+ordinary Edit Alternative.
+
+Continue freezes a copied list of selected alternatives. All-selected Save calls
+exactly `capturedBase.merge(tokenId)` for the receiving state's full frontier.
+A deliberately selected strict subset calls exactly
+`capturedBase.merge(selectedAlternatives)` with those captured references. Omitted
+alternatives are not silently included, and the form warns they may remain competing.
+The desktop never treats an omitted member of the original frontier as new information.
+
+`MergeInputs.selectedCompetition()` intersects each core field-value membership and
+secret-group membership with the selection, discarding empty intersections. It
+retains the core's values and equality groups; descriptors, heads, metadata time and
+TOTP codes do not establish equality or voting priority. Going Back discards field
+choices and clears new-secret input; the input step preserves the checked subset
+for deliberate changes and builds a fresh resolution form on Continue.
+
+The modeless `MergeEditorPanel` resolves status, issuer, account, algorithm, digits,
+period and secret independently. Agreed fields are prefilled and remain changeable;
+disagreeing fields start without a selection and disable Save until explicitly
+resolved. Existing choices include their Alternative memberships. Status and
+algorithm permit all pinned enum values. Issuer/account offer literal Other… text,
+with no added string policy. Digits and integral-second period use the same public
+`TokenDescriptor` validation as M2a (6–8 and 1–4294967295). Controls and renderers
+render stored strings literally, without Swing HTML.
+
+Secret groups expose only Alternative memberships. One agreed group defaults to
+keeping it; multiple groups have no default. Replacement accepts the M2a Base32
+caller-secret ingress. The submitted `MergeDraft` owns immutable non-secret fields,
+`MergeInputs`, a captured representative alternative for an existing secret group,
+or newly decoded owned bytes. It contains no builder, secret choice, partial or
+retry capability. It delegates field application/secret ingress to the small M2a
+`TokenDraft` helper without changing ordinary create/update semantics.
+
+`MergeWrites` constructs, inspects (`competingValues`, `secretChoices`,
+`unresolvedFields`), populates, saves and closes a short-lived `MergeToken` entirely
+on the session executor. A descriptive `SecretGroup` is never passed to it. The
+representative alternative must match exactly one choice issued by this exact
+builder; missing/ambiguous mappings publish nothing. All intended fields are applied,
+and an unexpectedly nonempty unresolved list prevents save. `NewSecret.copyOf`
+occurs there, immediately wipes desktop bytes, synchronously supplies the builder,
+and closes promptly. Draft scope also wipes on factory/setter/save failure.
+Metadata remains at the public API default.
+
+The core alone owns the normal merge fresh-observation/new-information gate,
+including causal relevance of new heads with already-known semantic values. There
+is no second desktop freshness check or latest-state substitution.
+
+## Merge results, partial ownership and renewed review
+
+Normal merge Saved says “Merge publication acknowledged.” The editor retires; only
+emitted states change browser rows. This promises neither global conflict freedom
+nor peer observation. All definite Failed reasons retain editable non-secret form
+state for a deliberate new Save from the same base, except SESSION_CLOSING, which
+starts close. OBSERVATION_UNAVAILABLE explicitly states that nothing was published;
+it is not a conflict result. Consumed replacement secrets must be re-entered.
+
+AdditionalConflict is definite non-publication, with newly relevant information
+and an independently owned frozen original resolution. The builder is terminal.
+The controller retires the form, keeps `PartialResolution` only in executor-owned
+operation state, and presents Review latest and merge again (the normal/default
+action), Publish original resolution anyway, and Cancel. Neither publication nor
+review happens automatically. Subsequent state emissions cannot alter that partial.
+
+Review Latest or Cancel takes and clears the owned partial, then closes it on the
+session executor without save. Cleanup errors produce a generic cleanup message,
+not persistence uncertainty; session close is the final invalidation backstop.
+After cleanup, Review looks up the full TokenId in `AdditionalConflict.latest()`.
+A remaining conflict opens a fresh input-selection workflow using exactly that state,
+with all its alternatives selected and no prior resolutions, subset or new secret.
+Otherwise the workflow ends with an explanation. The supplied state never replaces
+the browser's latest emitted state. Repeated AdditionalConflict/Review cycles are
+unbounded human decisions, each retiring the previous partial.
+
+Publish Original requires a second explicit confirmation explaining that it uses
+the exact original selected inputs and resolution, omits newly observed information,
+and skips the merge new-information check. It can leave competing alternatives.
+Only the executor calls `PartialResolution.save()`; it constructs no new merge or
+update and performs no desktop semantic gate. The narrowed `PartialSaveResult`
+permits only Saved, Failed, and PublicationUncertain:
+
+- Saved consumes/retires the partial and says “Original merge resolution publication
+  acknowledged.” It does not claim the new conflict was resolved.
+- Failed retires/closes the partial, states definite non-publication, and restores
+  write actions (or closes for SESSION_CLOSING). It never saves the same partial again.
+- PublicationUncertain retires the partial and transfers sole publication authority
+  to the independently returned `PublicationRetry`.
+
+Normal and partial merge uncertainty reuse M2a's exact-byte retry/stop machinery,
+with operation-specific wording. There is no Review Latest action while a retry
+is owned, no plaintext recipe retained for retry, and no merge reconstruction.
+Stop remains sticky across observations and later acknowledged writes.
+
+## Merge close races and cleanup knowledge
+
+The one-write-workflow slot covers input selection, field editing, normal merge,
+AdditionalConflict decisions, partial save and publication retry. Refresh, state
+rendering and TOTP remain independent until close. Closing clears unsaved secret
+input and disables the modeless editor without creating a builder. An in-flight
+merge, partial save or retry is never interrupted. Executor cleanup is queued
+behind that work and ahead of session close, including capabilities returned while
+closing. No late completion may reopen decision or retry UI; unpublished partials
+are closed without save, without creating sticky uncertainty solely from abandonment.
+
+Once a save returns a semantic result, subsequent builder/handle cleanup cannot
+erase it. AdditionalConflict keeps its independent partial despite builder-close
+failure; partial Saved/Failed/PublicationUncertain survive partial-close failure,
+including ownership of a usable retry successor. Cleanup logs are generic and
+redacted. Tests use public fakes and deterministic latches for these races; the
+real NIO smoke does not attempt to manufacture AdditionalConflict with filesystem races.

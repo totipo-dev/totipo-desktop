@@ -7,6 +7,15 @@ import dev.totipo.TokenAlternative;
 public interface VaultView {
     @FunctionalInterface
     interface EditAction { void open(VaultState base, TokenAlternative alternative, String explanation); }
+    @FunctionalInterface
+    interface MergeAction { void open(VaultState base, dev.totipo.TokenState token); }
+    default void mergeAction(MergeAction action) { }
+    default void editMerge(MergeEditorPanel editor) { }
+    default void additionalConflict(Runnable review, Runnable publish, Runnable cancel) { }
+    default void confirmOriginalResolution(Runnable confirmed) { }
+    default void mergePublicationUncertain(boolean original, boolean busy, Runnable retry, Runnable stop) {
+        publicationUncertain(false, busy, retry, stop);
+    }
     default void tokenActions(Runnable create, EditAction edit) { }
     default void writeAvailability(boolean available) { }
     default void editToken(TokenEditorPanel editor, boolean create) { }

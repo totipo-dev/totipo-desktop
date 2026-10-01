@@ -46,6 +46,40 @@ class NioSmokeTest {
         }
     }
 
+    @Test void realConcurrentUpdatesMergeThroughDesktopBoundaryAndAuthoritativeObservation() throws Exception {
+        char[] password = {'m', '2', 'b'};
+        var executor = java.util.concurrent.Executors.newSingleThreadExecutor(r -> new Thread(r, "totipo-session-merge-smoke"));
+        try (var session = assertInstanceOf(CreateVaultResult.Created.class, NioTotipo.create(directory, password)).session()) {
+            var fields = new dev.totipo.TokenDescriptor(dev.totipo.TokenStatus.ACTIVE, "Issuer A", "base",
+                    dev.totipo.TotpAlgorithm.SHA1, 6, java.time.Duration.ofSeconds(30));
+            var saved = assertInstanceOf(SaveResult.Saved.class, executor.submit(() ->
+                    TokenWrites.save(session.state(), null, new TokenDraft(fields, new byte[]{102}))).get(10, TimeUnit.SECONDS));
+            VaultState base = observe(session, saved.tokenId(), "base");
+            var ancestor = base.token(saved.tokenId()).orElseThrow().alternatives().get(0);
+            var b = new dev.totipo.TokenDescriptor(dev.totipo.TokenStatus.ACTIVE, "Issuer B", "branch B",
+                    dev.totipo.TotpAlgorithm.SHA256, 7, java.time.Duration.ofSeconds(42));
+            var c = new dev.totipo.TokenDescriptor(dev.totipo.TokenStatus.TOMBSTONED, "Issuer C", "branch C",
+                    dev.totipo.TotpAlgorithm.SHA512, 8, java.time.Duration.ofSeconds(60));
+            assertInstanceOf(SaveResult.Saved.class, executor.submit(() -> TokenWrites.save(base, ancestor, new TokenDraft(b, null))).get());
+            observe(session, saved.tokenId(), "branch B");
+            assertInstanceOf(SaveResult.Saved.class, executor.submit(() -> TokenWrites.save(base, ancestor, new TokenDraft(c, null))).get());
+            VaultState conflicted = observe(session, saved.tokenId(), "branch C");
+            var token = conflicted.token(saved.tokenId()).orElseThrow();
+            assertTrue(token.hasConflict()); assertEquals(2, token.alternatives().size());
+            var inputs = MergeInputs.capture(conflicted, token);
+            var combined = new dev.totipo.TokenDescriptor(dev.totipo.TokenStatus.ACTIVE, b.issuer(), "merged",
+                    c.algorithm(), c.digits(), b.period());
+            var representative = inputs.selectedCompetition().secret().groups().get(0).alternatives().get(0);
+            assertInstanceOf(SaveResult.Saved.class, executor.submit(() ->
+                    MergeWrites.save(new MergeDraft(inputs, combined, representative, null))).get(10, TimeUnit.SECONDS));
+            VaultState observed = observe(session, saved.tokenId(), "merged");
+            var merged = observed.token(saved.tokenId()).orElseThrow();
+            assertFalse(merged.hasConflict()); assertEquals(1, merged.alternatives().size());
+            assertEquals(combined, merged.alternatives().get(0).descriptor());
+            assertEquals(8, observed.generateTotp(merged.alternatives().get(0), Instant.parse("2026-01-01T00:00:07Z")).code().length());
+        } finally { Arrays.fill(password, '\0'); executor.shutdown(); }
+    }
+
     private static VaultState observe(dev.totipo.VaultSession session, dev.totipo.TokenId id, String account) throws Exception {
         CompletableFuture<VaultState> observed = new CompletableFuture<>();
         session.states().subscribe(new Flow.Subscriber<>() {
