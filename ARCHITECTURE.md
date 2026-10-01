@@ -1,7 +1,8 @@
 # Desktop architecture
 
-M1a implements local NIO vault open/create, session/window lifecycle, local
-observation progress and diagnostic codes, and manual refresh. The single-project
+M2a adds manual token create/update and explicit publication retry/abandonment to
+M1a session/window lifecycle, observation/diagnostics and refresh, and M1b
+logical-token/TOTP browsing. The single-project
 Swing bootstrap and pinned composite dependency from M0 remain intact. Production
 code consumes only `dev.totipo.*` and `dev.totipo.storage.nio.NioTotipo`, never the
 storage SPI or implementation internals. See [the dependency pin](TOTIPO_JAVA_PIN.md).
@@ -19,6 +20,11 @@ TotipoDesktop: invokeLater
             -> one StateSubscriber / states() subscription
             -> one serialized session executor
             -> at most the latest immutable VaultState reference
+            -> one TokenWriteController (editor OR uncertainty decision)
+                 -> desktop TokenEditorPanel / owned modeless TokenEditDialog
+                 -> captured base/alternative for an open editor
+                 -> at most one executor-owned PublicationRetry
+                 -> sticky non-secret abandoned-publication boolean
 ```
 
 There is no global current vault. Independent windows have independent controllers,
@@ -42,8 +48,8 @@ substitute lifecycle outcomes without KDF or filesystem work. No protocol or
 storage-provider behavior is reproduced in this seam.
 
 Each controller owns a separate single-thread executor named `totipo-session-N`.
-M1a uses it only for blocking session close. Future blocking mutations will use
-this same serialized boundary. Open, create and close never run on the EDT.
+It runs token builder factory/setters/save/close, publication retry/capability
+cleanup, and session close. Blocking open, create and close never run on the EDT.
 Executors are explicitly shut down; no shutdown interrupts an in-flight operation.
 The application uses neither SwingWorker nor virtual threads nor reactive libraries.
 Production code remains compatible with Java 17.
@@ -95,9 +101,12 @@ create, observation or lifecycle retry.
 ## State and replay-latest delivery
 
 `VaultState` is authoritative immutable application state. A controller retains
-only its latest received reference, clears it on close, and does not maintain a
-shadow vault model or state history. Swing rendering models are rebuilt from the
+its latest received reference, clears it on close, and does not maintain a
+shadow vault model or state history. An editor separately captures its exact
+historical operation base. Swing rendering models are rebuilt from the
 current state, not merged into a desktop protocol representation.
+
+The desktop application must not maintain a mutable shadow copy of vault/token state.
 
 `StateSubscriber` requests exactly one item on subscription. `onNext` enqueues an
 EDT runnable, which stores/renders the state only while the controller remains
@@ -115,7 +124,8 @@ the same terminal cleanup path.
 
 ## Local observation presentation
 
-`VaultPanel` reads only `observation()` and `diagnostics()`:
+`VaultPanel` delegates token browsing to `TokenBrowserPanel` and reads observation
+and diagnostics for the following presentation:
 
 - Enumerating: “Observing local vault — discovered N objects”, with an indeterminate
   bar. The count is not described as final.
@@ -158,19 +168,15 @@ launcher is disposed. The EDT never waits for background work. There is no
 
 1. Protocol/application state belongs to `VaultSession` and `VaultState`.
 2. Presentation state includes selection, window state and dialogs.
-3. Future operation state includes editor drafts and outstanding result capabilities.
-
-Future create/update/merge builders are thread-confined. Forms will own desktop
-drafts; each builder will be created, populated, saved and closed in one background
-operation. None of this editing behavior exists in M1a.
+3. Operation state includes editor drafts, captured bases, and outstanding result capabilities.
 
 The desktop must not collapse conflicts into arbitrary winners, partial observation
 into completeness, uncertainty into success/failure, local publication into remote
 synchronization, or equal causal heads into semantic conflict. No automatic merge,
 retry or invented synchronization semantics are introduced.
 
-Token list/detail/search, TOTP display/timing and all token mutations remain outside
-M1a, as do password change, Base32/QR/import/export, clipboard, keychain, remembered
+Merge/conflict resolution, search/filter/sort, password change, QR/URI import,
+secret export, clipboard, keychain, remembered
 passwords, recent history, tray, shortcuts, theming, watchers, remote providers,
 installers and release publishing.
 
@@ -180,7 +186,116 @@ Headless tests construct panels and drive lifecycle owners on the EDT, using nar
 fake views/access/sessions and controlled publishers/latches. They test lifecycle
 outcomes, password validation/wiping, subscriber backpressure, terminal/cancel
 races, observation-only rendering, refresh, independent session close and shutdown
-during open/create. Fake states reject every token/editing/TOTP method. One small
-real-NIO temporary-directory test covers create/close/open/close. Build/test also
+during open/create. M1a fake states reject unexpected token/editing/TOTP methods;
+M2a adds public-interface write fakes. Real-NIO temporary-directory tests cover
+create/close/open/close, TOTP intervals, and desktop token create/update. Build/test also
 verify every production class is Java 17 classfile version 61. No new production or
 test dependencies were needed.
+
+## Logical-token browser and TOTP (M1b)
+
+One row represents one logical token. Complete semantic alternatives, including
+secret-only differences, determine conflict; equal-valued multiple heads do not.
+Selection follows TokenId across immutable projections. Alternative labels express
+no preference. Incomplete observations retain their unresolved evidence and never
+invent an editable value. Stored issuer/account/metadata render literally.
+
+TOTP uses the public state/alternative operation and core-returned half-open time
+intervals. A coalescing Swing timer updates the display; opening an editor does
+not stop it. Latest states continue rendering during editing and uncertainty.
+No success result directly changes a row, selection, descriptor or code.
+
+## Desktop drafts and secret ingress (M2a)
+
+`TokenEditorPanel` is headlessly testable; `TokenEditDialog` is only an owned
+modeless shell. Neither holds a core builder. Create defaults are ACTIVE, empty
+issuer/account, SHA1, six digits, thirty seconds, and a required secret. Update
+prefills the selected descriptor, permits ACTIVE/TOMBSTONED, and requires an
+explicit Replace secret checkbox to accept replacement ingress. TOMBSTONED is
+not permanent deletion. No metadata is supplied or copied from parents.
+
+Non-secret input is validated against public TokenDescriptor bounds. No extra
+issuer/account policy or hidden wire-format validation is duplicated. A Save
+reads `JPasswordField.getPassword()` into a temporary char array and decodes that
+array directly. `Base32` accepts RFC 4648 upper/lowercase, padded or unpadded text,
+and ignores ASCII space/tab/CR/LF/hyphen. It rejects invalid alphabet, Unicode
+lookalikes, 0/1 substitutions, misplaced/incorrect padding, impossible lengths,
+nonzero trailing bits, and decoded lengths outside 1–128 bytes. Error messages
+never contain input. Temporary character arrays are wiped in finally; fields
+clear after decoding, cancellation, retirement, and disabling replacement.
+
+A submitted `TokenDraft` exclusively owns its decoded byte array and immutable
+non-secret descriptor. Ownership transfers to one executor task. `TokenWrites`
+creates `base.createToken()` or `base.update(capturedAlternative)` there, applies
+all fields, saves, and closes the builder on that same thread. A try-with-resources
+draft scope wipes bytes even when factory/setter/save fails. After
+`NewSecret.copyOf` defensively copies ingress, the desktop array is immediately
+wiped; `builder.secret` synchronously copies the wrapper, which closes immediately.
+No wrapper or plaintext draft is retained for retries. Without replacement, no
+secret ingress call is made. All wiping is best-effort JVM hygiene, not secure
+erasure. A definite failure retains editable non-secret form fields, but requires
+fresh secret input when the operation needs it.
+
+## Captured update basis and serialized workflow
+
+The browser offers Edit Token for one complete semantic alternative, including
+multiple equal heads. A conflicted token offers an initially unselected
+Alternative N selector and Edit Alternative…; explanatory text appears before
+opening the editor and in the editor. No complete alternative means no edit.
+
+Opening captures the exact receiving VaultState and TokenAlternative. New state
+emissions neither rewrite the draft nor replace this basis. Historical same-session
+references are valid. Ordinary update uses only the deterministic equal-valued
+heads selected by that receiving state (or the alternative's captured heads).
+It does not parent unrelated alternatives, invoke a merge gate or resolve conflict.
+No head-level update, rebasing, winner selection or merge exists in this path.
+
+`TokenWriteController` admits one editor or uncertainty decision per window.
+Create/Edit disable throughout it; Refresh and ordinary state/TOTP delivery stay
+available. Save validation occurs on EDT, then controls disable before one task
+is submitted to the existing session executor. Repeated clicks cannot queue more
+writes. There is no extra executor, subscription, polling or automatic retry.
+
+## Publication results and capability ownership
+
+| Result | Desktop behavior |
+| --- | --- |
+| Saved | Retire editor/uncertainty; acknowledge token publication; restore write actions. This is configured-store durability acknowledgement, not sync, conflict resolution or global freshness. |
+| Failed(PREPARATION_FAILED) | Explain definite non-publication; leave non-secret fields editable for an explicit new builder operation from the same base. |
+| Failed(OBSERVATION_UNAVAILABLE) | State that required local observation was unavailable and the operation was not published; retain editable form. |
+| Failed(UNRESOLVED_FIELDS) | State definite non-publication without inventing missing values; retain editable form. |
+| Failed(SESSION_CLOSING) | Begin orderly window/session close; no retry choice. |
+| PublicationUncertain | Retire editor; keep exact retry capability on executor; show Retry exact publication / Stop retrying. May already be present in the vault. |
+| AdditionalConflict | Defensive invariant failure only: close the returned PartialResolution on executor, show generic internal failure, never publish it or expose merge choices. |
+
+The pinned publication attempt requests local refresh after Saved.
+The desktop does not request an additional refresh and never uses observation as
+acknowledgement. Runtime exceptions produce a generic internal-operation message,
+not a fabricated SaveResult; exception details, drafts and codes are not logged.
+
+Only the session executor accesses the retry field. EDT receives classification
+and callbacks, never a capability. An explicit retry takes and clears the old
+handle, invokes `retryPublication()` on the session executor using narrow
+`RetryResult`, installs the successor on uncertainty, and closes the consumed
+old handle. There is never a second builder or semantic reconstruction. Saved
+drops uncertainty with no abandonment notice; successive uncertain results own
+successive independent handles. Both actions disable during an attempt.
+
+Stop closes the handle on the executor and sets a sticky session presentation
+boolean. It does not undo publication or prove failure. Later observation,
+Refresh, or unrelated Saved operations cannot clear it. The only retained history
+is this non-secret boolean. Create explains that starting again makes a distinct
+token and may lead to two logical tokens if an earlier uncertain create persisted.
+An unexpected retry exception retires the unusable handle and also preserves the
+uncertainty history with a generic internal failure message.
+
+## Close versus editor/save/retry
+
+Close marks the controller closing on EDT, cancels its one state subscription,
+retires the editor and clears its field, disables all write entry points, and
+clears uncertainty presentation. It queues capability cleanup followed by session
+close on the same executor. It never interrupts a save/retry or waits on EDT.
+An in-flight task may install a returned successor on the executor; queued cleanup
+then releases it before session close. Late EDT callbacks check closing and never
+reopen an editor, reinstall uncertainty UI, or start another retry. Session close
+still invalidates core-owned handles, even if an unexpected cleanup failure occurs.

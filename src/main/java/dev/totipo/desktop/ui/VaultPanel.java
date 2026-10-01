@@ -6,6 +6,7 @@ import java.awt.BorderLayout;
 import java.awt.GridLayout;
 import java.time.Clock;
 import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -21,16 +22,28 @@ public final class VaultPanel extends JPanel {
     private final JTextArea diagnostics = new JTextArea(8, 48);
     private final JButton refresh = new JButton("Refresh");
     private final TokenBrowserPanel browser = new TokenBrowserPanel(Clock.systemUTC());
+    private final JButton create = new JButton("Create Token");
+    private final JLabel writeMessage = new JLabel(" ");
+    private final JLabel abandoned = new JLabel(" ");
+    private final JPanel uncertainty = new JPanel(new BorderLayout(4, 4));
+    private boolean writeAvailable = true;
+    private boolean observed;
 
     public VaultPanel() {
         Edt.require();
         setLayout(new BorderLayout(12, 12));
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        JPanel heading = new JPanel(new GridLayout(0, 1, 0, 8));
+        JPanel heading = new JPanel();
+        heading.setLayout(new BoxLayout(heading, BoxLayout.Y_AXIS));
         heading.add(new JLabel("Vault — local observation"));
         heading.add(status);
         heading.add(progress);
         heading.add(refresh);
+        heading.add(create);
+        create.setEnabled(false);
+        heading.add(writeMessage);
+        heading.add(abandoned);
+        heading.add(uncertainty);
         add(heading, BorderLayout.NORTH);
         diagnostics.setEditable(false);
         add(browser, BorderLayout.CENTER);
@@ -41,6 +54,38 @@ public final class VaultPanel extends JPanel {
         progress.setIndeterminate(true);
     }
 
+    public void tokenActions(Runnable action, VaultView.EditAction edit) {
+        Edt.require(); create.addActionListener(event -> action.run()); browser.onEdit(edit);
+    }
+    public void writeAvailability(boolean available) {
+        Edt.require(); writeAvailable = available;
+        create.setEnabled(available && observed); browser.writeAvailability(available);
+    }
+    public void writeMessage(String text) { Edt.require(); writeMessage.setText(text); }
+    public void abandonedPublication(boolean value) {
+        Edt.require(); abandoned.setText(value
+                ? "One or more earlier token publications have unresolved persistence status." : " ");
+    }
+    public void clearUncertainty() { Edt.require(); uncertainty.removeAll(); uncertainty.revalidate(); uncertainty.repaint(); }
+    public void publicationUncertain(boolean isCreate, boolean busy, Runnable retry, Runnable stop) {
+        clearUncertainty();
+        JTextArea text = new JTextArea("Totipo could not determine whether this exact token operation received a durable acknowledgement. "
+                + "It may already be present in the vault.\nRetry republishes the exact same frozen operation. It does not re-read or rebase the token."
+                + "\nStop retrying releases the retry capability; it does not undo a publication or prove it failed."
+                + (isCreate ? "\nStarting Create Token again later creates a new operation/token; it is not a retry and could create two logical tokens." : ""));
+        text.setEditable(false); text.setLineWrap(true); text.setWrapStyleWord(true);
+        text.setRows(isCreate ? 5 : 4);
+        uncertainty.add(text, BorderLayout.CENTER);
+        JButton retryButton = new JButton(busy ? "Retrying / releasing exact publication…" : "Retry exact publication");
+        JButton stopButton = new JButton("Stop retrying");
+        retryButton.setEnabled(!busy); stopButton.setEnabled(!busy);
+        retryButton.addActionListener(event -> retry.run()); stopButton.addActionListener(event -> stop.run());
+        JPanel choices = new JPanel(new GridLayout(1, 2, 4, 4));
+        choices.add(retryButton); choices.add(stopButton);
+        uncertainty.add(choices, BorderLayout.SOUTH);
+        uncertainty.revalidate(); uncertainty.repaint();
+    }
+
     public void onRefresh(Runnable action) {
         Edt.require();
         refresh.addActionListener(event -> action.run());
@@ -48,6 +93,8 @@ public final class VaultPanel extends JPanel {
 
     public void render(VaultState state) {
         Edt.require();
+        observed = true;
+        create.setEnabled(writeAvailable);
         ObservationProgress observation = state.observation();
         if (observation instanceof ObservationProgress.Enumerating enumerating) {
             status.setText("Observing local vault — discovered " + enumerating.discovered() + " objects");
@@ -77,6 +124,7 @@ public final class VaultPanel extends JPanel {
 
     public void closing() {
         Edt.require();
+        writeAvailability(false);
         browser.closing();
         refresh.setEnabled(false);
         status.setText("Closing…");

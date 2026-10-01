@@ -16,6 +16,7 @@ final class VaultWindowController {
     private final Consumer<VaultWindowController> closed;
     private final ExecutorService executor;
     private final StateSubscriber subscriber;
+    private final TokenWriteController writes;
     private VaultState latest;
     private boolean closing;
 
@@ -27,6 +28,7 @@ final class VaultWindowController {
         this.view = view;
         this.closed = closed;
         executor = Executors.newSingleThreadExecutor(task -> new Thread(task, "totipo-session-" + number));
+        writes = new TokenWriteController(executor, view, this::close);
         subscriber = new StateSubscriber(this::render, () -> close(true), this::close);
     }
 
@@ -34,6 +36,8 @@ final class VaultWindowController {
         Edt.require();
         try {
             view.actions(this::refresh, this::close);
+            view.tokenActions(() -> writes.open(latest, null,
+                    "A new Create makes a distinct token; it is not a retry of an earlier uncertain publication."), writes::open);
             view.showWindow();
             session.states().subscribe(subscriber);
         } catch (RuntimeException unexpected) {
@@ -73,6 +77,7 @@ final class VaultWindowController {
         subscriber.cancel();
         latest = null;
         try {
+            writes.closing();
             view.closing();
             if (failed) {
                 view.failure();

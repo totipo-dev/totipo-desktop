@@ -1,13 +1,22 @@
 # Totipo Desktop
 
-A Java/Swing desktop application for Totipo. Current status: **M1a lifecycle and
-local observation**. The application can create/open local NIO vaults in existing
-directories, show local observation progress and diagnostic codes, and manually
-request another local observation with Refresh. Independent vault windows own
-their sessions and close them during window/application shutdown.
+A Java/Swing desktop application for Totipo. Current status: **M2a token create,
+ordinary update, and publication uncertainty**. The application supports local
+vault create/open, observation and diagnostics, read-only logical-token/TOTP
+browsing, manual Base32 token creation, and ordinary update of an explicitly
+selected semantic alternative. Independent vault windows own their sessions and
+close them during window/application shutdown. Refresh requests local observation.
 
-Token display/editing and TOTP display are not implemented yet. A finished local
-observation is not a claim of synchronization, freshness or complete history.
+Each vault window allows one editor or publication-retry decision at a time.
+Updates can change status (ACTIVE/TOMBSTONED) and optionally replace the secret;
+existing secrets are never exported. Conflicted tokens require explicit
+alternative selection. **Merge/conflict resolution is not yet implemented.**
+
+Publication uncertainty offers **Retry exact publication** or **Stop retrying**.
+Stopping releases the retry capability and leaves a persistent warning for that
+open session: publication may already have occurred. Starting Create again makes
+a distinct token, not a retry. Acknowledged publication and finished local
+observation do not mean synchronization, freshness or complete history.
 Protocol target: Totipo Vault Format **v1/r17**, through pinned Totipo Java.
 
 Clone with the exact dependency checkout:
@@ -49,3 +58,5 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for threading, state, and ownership polic
 [TOTIPO_JAVA_PIN.md](TOTIPO_JAVA_PIN.md) for the dependency boundary and pin, and
 [the M0 report](review/M0_BOOTSTRAP_REPORT.md) for bootstrap evidence, and
 [the M1a report](review/M1A_LIFECYCLE_OBSERVATION_REPORT.md) for lifecycle validation.
+See also the [M1b report](review/M1B_READ_ONLY_TOKEN_REPORT.md) and
+[M2a review report](review/M2A_CREATE_UPDATE_PUBLICATION_REPORT.md).

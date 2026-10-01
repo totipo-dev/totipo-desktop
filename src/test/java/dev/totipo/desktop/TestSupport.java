@@ -131,7 +131,7 @@ public final class TestSupport {
         @Override public void dispose() { Edt.require(); disposed.countDown(); }
     }
 
-    static final class Window implements VaultView {
+    static class Window implements VaultView {
         final CountDownLatch disposed = new CountDownLatch(1);
         final List<VaultState> rendered = new ArrayList<>();
         Runnable refresh;

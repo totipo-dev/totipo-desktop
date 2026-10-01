@@ -21,6 +21,10 @@ public final class TokenBrowserPanel extends JPanel {
     private transient TokenId selected;
     private boolean rebuilding;
     private boolean closed;
+    private final JButton edit = new JButton("Edit Token");
+    private transient VaultView.EditAction editAction;
+    private boolean writeAvailable = true;
+    private final JComboBox<String> alternatives = new JComboBox<>();
 
     public TokenBrowserPanel(Clock clock) {
         Edt.require();
@@ -38,6 +42,14 @@ public final class TokenBrowserPanel extends JPanel {
         split.setResizeWeight(0.3);
         split.setPreferredSize(new Dimension(960, 480));
         add(split, BorderLayout.CENTER);
+        JPanel editing = new JPanel(new GridLayout(0, 1));
+        editing.add(alternatives);
+        editing.add(edit);
+        add(editing, BorderLayout.SOUTH);
+        edit.setEnabled(false);
+        alternatives.setVisible(false);
+        alternatives.addActionListener(event -> writeAvailability(writeAvailable));
+        edit.addActionListener(event -> editSelected());
         list.addListSelectionListener(event -> {
             if (!event.getValueIsAdjusting() && !rebuilding && !closed) {
                 selected = list.getSelectedValue() == null ? null : list.getSelectedValue().id();
@@ -85,6 +97,41 @@ public final class TokenBrowserPanel extends JPanel {
             totp.select(latest, token);
         }
         detail.setCaretPosition(0);
+        edit.setText(token != null && token.hasConflict() ? "Edit Alternative…" : "Edit Token");
+        alternatives.removeAllItems();
+        alternatives.setVisible(token != null && token.hasConflict());
+        if (token != null && token.hasConflict()) {
+            for (int i = 0; i < token.alternatives().size(); i++) { alternatives.addItem(TokenPresentation.label(i)); }
+            alternatives.setSelectedIndex(-1);
+            detail.append("\nTo edit, explicitly select an Alternative below. This updates only that alternative; "
+                    + "it does not resolve the other concurrent alternatives.\n");
+        }
+        writeAvailability(writeAvailable);
+    }
+
+    public void onEdit(VaultView.EditAction action) { Edt.require(); editAction = action; }
+    public void writeAvailability(boolean available) {
+        Edt.require(); writeAvailable = available;
+        TokenState token = selected == null || latest == null ? null : latest.token(selected).orElse(null);
+        alternatives.setEnabled(!closed && available);
+        edit.setEnabled(!closed && available && token != null && !token.alternatives().isEmpty()
+                && (!token.hasConflict() || alternatives.getSelectedIndex() >= 0));
+    }
+    private void editSelected() {
+        if (closed || !writeAvailable || editAction == null || selected == null) { return; }
+        VaultState base = latest;
+        TokenState token = base.token(selected).orElse(null);
+        if (token == null || token.alternatives().isEmpty()) { return; }
+        int index = 0;
+        String explanation = "This edit is based on the token value observed when the editor was opened. "
+                + "Later concurrent changes are not automatically included.";
+        if (token.hasConflict()) {
+            index = alternatives.getSelectedIndex();
+            if (index < 0) { return; }
+            explanation = "This token currently has competing alternatives. You are editing " + TokenPresentation.label(index)
+                    + " only. Saving this update does not resolve the other alternatives. " + explanation;
+        }
+        editAction.open(base, token.alternatives().get(index), explanation);
     }
 
     private void renderCodes(List<TotpDisplay.Display> displays) {
@@ -119,6 +166,7 @@ public final class TokenBrowserPanel extends JPanel {
     public void closing() {
         Edt.require();
         closed = true;
+        edit.setEnabled(false);
         totp.clear();
         latest = null;
         selected = null;
