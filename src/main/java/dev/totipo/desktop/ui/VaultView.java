@@ -1,10 +1,13 @@
 package dev.totipo.desktop.ui;
 
+import dev.totipo.desktop.clipboard.TotpClipboard;
+
 import dev.totipo.VaultState;
 import dev.totipo.TokenAlternative;
 
 /** Vault presentation boundary; all calls are on the EDT. */
 public interface VaultView {
+    default void copyAction(TotpClipboard.Copy action) { }
     default void passwordAction(Runnable action) { }
     default void editPassword(PasswordChangePanel panel) { }
     default void retirePassword() { }

@@ -1,6 +1,6 @@
 # Totipo Desktop
 
-A Java/Swing desktop application for Totipo. Current status: **M3b desktop usability and accessibility**, alongside merge/conflict resolution, token create,
+A Java/Swing desktop application for Totipo. Current status: **M3c explicit TOTP clipboard copying**, alongside merge/conflict resolution, token create,
 ordinary update, and publication uncertainty. The application supports local
 vault create/open, observation and diagnostics, read-only logical-token/TOTP
 browsing, manual Base32 token creation, and ordinary update of an explicitly
@@ -17,6 +17,22 @@ Forms have associated labels, accessible control names, guarded Escape cancellat
 and ordinary default buttons. Long details and merge content scroll; focus is not
 requested by state updates. These are concrete usability improvements, not a formal
 accessibility certification.
+
+Visible active TOTP codes have an explicit **Copy code** button, including a separate
+button for each active conflict alternative. Copying preserves the displayed digits
+exactly. There is no automatic copy, rollover copy, or global Ctrl/Cmd+C override.
+Totipo attempts to clear its exact current clipboard payload at code expiry or
+after at most 30 seconds, whichever comes first, and when its vault closes or
+the application shuts down. It never clears content it cannot positively identify
+as its own exact copy.
+
+Once copied to the operating-system clipboard, a code is outside Totipo's exclusive
+control. The OS, desktop environment, clipboard managers/history, remote-desktop
+systems, accessibility software, or another application may read or retain it.
+Clearing is best effort: Totipo can replace only the current clipboard contents
+when its exact per-copy marker is still present. It cannot delete copies retained
+elsewhere and does not provide secure clipboard erasure. Clipboard unavailability
+requires another deliberate Copy click; Totipo never restores previous clipboard data.
 
 Each vault window allows one write workflow at a time.
 **Change Password…** accepts current/new/confirmation passwords and shares that

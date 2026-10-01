@@ -1,5 +1,7 @@
 package dev.totipo.desktop.ui;
 
+import dev.totipo.desktop.clipboard.TotpClipboard;
+
 import dev.totipo.*;
 import java.time.Clock;
 import java.time.Duration;
@@ -11,7 +13,7 @@ import javax.swing.Timer;
 
 /** EDT-only ephemeral code lifetime. The Swing timer merely invokes tick(). */
 final class TotpDisplay {
-    record Display(String label, String code, int remaining, String countdown) { }
+    record Display(String label, String code, int remaining, String countdown, boolean available) { }
     private final Clock clock;
     private final Consumer<List<Display>> render;
     private final Timer timer;
@@ -67,16 +69,31 @@ final class TotpDisplay {
                     }
                     displays.add(new Display(entry.label, code.code(),
                             (int) Math.max(0, Math.min(1000, 1000 * left / span)),
-                            (long) Math.ceil(left) + " seconds remaining"));
+                            (long) Math.ceil(left) + " seconds remaining", true));
                 } catch (RuntimeException unavailable) {
                     entry.code = null;
                     entry.failed = true;
                 }
             }
-            if (entry.failed) { displays.add(new Display(entry.label, "Code unavailable", 0, "")); }
+            if (entry.failed) { displays.add(new Display(entry.label, "Code unavailable", 0, "", false)); }
         }
         if (entries.stream().noneMatch(entry -> !entry.failed)) { timer.stop(); }
         render.accept(List.copyOf(displays));
+    }
+
+    String copy(int index, TotpClipboard.Copy action) {
+        Edt.require();
+        if (index < 0 || index >= entries.size()) { return "Code unavailable; code was not copied."; }
+        Entry entry = entries.get(index);
+        Instant now = clock.instant();
+        if (!entry.failed && (entry.code == null || now.isBefore(entry.code.validFrom())
+                || !now.isBefore(entry.code.validUntil()))) { tick(); }
+        now = clock.instant();
+        TotpCode code = entry.code;
+        if (code == null || now.isBefore(code.validFrom()) || !now.isBefore(code.validUntil())) {
+            return "Code unavailable; code was not copied.";
+        }
+        return action.copy(code.code(), code.validFrom(), code.validUntil(), now);
     }
 
     private static double seconds(Duration duration) { return duration.getSeconds() + duration.getNano() / 1e9; }

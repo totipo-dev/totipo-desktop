@@ -1,5 +1,7 @@
 package dev.totipo.desktop.ui;
 
+import dev.totipo.desktop.clipboard.TotpClipboard;
+
 import dev.totipo.ObservationProgress;
 import dev.totipo.VaultState;
 import java.awt.BorderLayout;
@@ -70,6 +72,7 @@ public final class VaultPanel extends JPanel {
     }
 
     public void focusSearch() { browser.focusSearch(); }
+    public void copyAction(TotpClipboard.Copy action) { browser.copyAction(action); }
 
     public void passwordAction(Runnable action) {
         Edt.require(); changePassword.addActionListener(event -> action.run());

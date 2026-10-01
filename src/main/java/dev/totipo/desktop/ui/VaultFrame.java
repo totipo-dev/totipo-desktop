@@ -1,5 +1,7 @@
 package dev.totipo.desktop.ui;
 
+import dev.totipo.desktop.clipboard.TotpClipboard;
+
 import dev.totipo.VaultState;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -30,6 +32,7 @@ public final class VaultFrame extends JFrame implements VaultView {
             @Override public void windowClosing(WindowEvent event) { close.run(); }
         });
     }
+    @Override public void copyAction(TotpClipboard.Copy action) { panel.copyAction(action); }
     @Override public void passwordAction(Runnable action) { panel.passwordAction(action); }
     @Override public void editPassword(PasswordChangePanel content) {
         passwordDialog = new PasswordChangeDialog(this, content); passwordDialog.setVisible(true);

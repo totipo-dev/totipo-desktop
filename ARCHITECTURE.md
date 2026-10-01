@@ -183,10 +183,10 @@ into completeness, uncertainty into success/failure, local publication into remo
 synchronization, or equal causal heads into semantic conflict. No automatic merge,
 retry or invented synchronization semantics are introduced.
 
-Later work includes search/filter/sort, QR/URI import,
-secret export, clipboard, keychain, remembered
-passwords, recent history, tray, shortcuts, theming, watchers, remote providers,
-installers and release publishing.
+Sorting, QR/URI import, secret export, keychain, remembered passwords, recent
+history, tray, theming, watchers, remote providers, installers and release publishing
+remain outside the implemented scope. M3b search/shortcuts and M3c explicit TOTP
+clipboard copying are described below.
 
 ## Verification
 
@@ -541,3 +541,67 @@ must never contain entered passwords or secrets. Current visible TOTP label text
 remains accessible and is cleared with the existing code lifetime; static descriptions
 contain no codes. Labels identify inputs, conflict/unresolved evidence remains text,
 and bounded windows with scrollable content avoid user-controlled pack dimensions.
+
+## Explicit TOTP clipboard copying (M3c)
+
+Clipboard is application-global presentation state, outside VaultState, observation,
+publication and synchronization. DesktopApplication owns one TotpClipboard shared by
+all vault controllers. Each controller has an opaque Object origin identity and gives
+its view only a guarded Copy callback. No state subscription, MutationGate reservation,
+protocol capability, session executor or storage operation participates.
+
+Each displayed available ACTIVE semantic alternative has its own Copy code button.
+Equal digits never merge alternatives. TotpDisplay validates its cached core TotpCode
+against its injected Clock on activation: validFrom <= now < validUntil. If outside,
+it invokes the existing tick path, then checks the clock and returned interval again.
+Clipboard code performs no TOTP generation or period arithmetic. Retired/detached
+buttons and closing controller callbacks cannot copy. Ordinary text-copy shortcuts
+remain Swing's; no global copy binding or focus request is installed.
+
+TotpClipboardPayload exposes exactly stringFlavor with the unmodified code String
+and application/x-totipo-copy-marker with a UUID v4 String generated per copy.
+The marker contains no token, code, issuer/account or path data. The payload is its
+ClipboardOwner. The manager retains at most one lease: marker, origin, scheduled
+cancellation and bounded-clear bookkeeping. It retains no code/payload, vault object
+or copy history. The clipboard necessarily holds an immutable Java String; it cannot
+be securely wiped. Replacing/retiring leases releases their desktop references.
+
+A successful setContents replaces the previous Totipo lease directly, with no
+intervening empty write. Its deadline is min(core validUntil, copyInstant + 30 seconds).
+A one-shot Swing Timer schedules the attempt, subtracting elapsed time before
+scheduling and rounding up to milliseconds. These timers run on EDT, independently
+of the application NIO executor and session mutation/close executors. Timer delivery
+is best effort and can be delayed by a busy desktop/EDT. Selection, search, state
+emission and TOTP rollover neither clear nor rewrite a copy.
+
+Clearing first verifies that the callback's lease is still current, then reads the
+current Transferable and requires its marker flavor and exact marker equality.
+Only then does it write an empty plain-text StringSelection and retire the lease.
+Unknown/missing/different markers retire the lease without writing. Text equality
+is never an ownership test: an external copy of identical digits must survive.
+lostOwnership is only evidence of loss, never proof of continued ownership through
+its absence. It posts to EDT and retires only the matching marker; a delayed old
+callback cannot affect a newer lease. Every retry repeats the current-payload check.
+
+Copy acquisition/write failures (headless, denied or busy clipboard) return a
+non-secret failure status, create no new lease and schedule no copy retry. A failed
+replacement leaves any prior successful lease intact. Clear inspection/write
+unavailability retries at 250 ms intervals for up to five seconds, with at most
+20 retries (also bounding backward-clock behavior). Late retries past the deadline
+retire without writing. There is no sleep, busy loop, executor or persistent
+diagnostic. No clear-success claim is shown.
+
+Controller close guards copy immediately and conditionally clears only its origin;
+closing A cannot clear a newer copy from B. Application shutdown rejects further
+copies and attempts current-lease clearing. Already-running retries are not restarted.
+Cleanup does not wait for availability, session close or disposal; pending bounded
+Swing attempts remain best effort during process teardown. No System.exit is used.
+Previous clipboard contents are never snapshotted or restored; the only read is
+the identity check for a Totipo lease.
+
+After export, Totipo no longer has exclusive control: OS/desktop clipboard history,
+clipboard managers, remote desktop, accessibility software and other applications
+can read or retain the code. Totipo cannot delete those copies. JDK Clipboard offers
+no atomic cross-application compare-and-set: the marker check and replacement are
+separate platform calls. This is a conservative best-effort current-content cleanup,
+not secure erasure or a guarantee against concurrent OS clipboard activity.

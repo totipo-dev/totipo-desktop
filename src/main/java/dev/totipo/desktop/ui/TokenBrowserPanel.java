@@ -1,5 +1,7 @@
 package dev.totipo.desktop.ui;
 
+import dev.totipo.desktop.clipboard.TotpClipboard;
+
 import dev.totipo.*;
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -22,6 +24,10 @@ public final class TokenBrowserPanel extends JPanel {
     final JTextField search = new JTextField(24);
     final JLabel resultCount = new JLabel("Waiting for observation");
     private boolean rebuilding;
+    private transient TotpClipboard.Copy copyAction =
+            (code, from, until, now) -> TotpClipboard.UNAVAILABLE;
+    private final JLabel clipboardStatus = new JLabel(" ");
+    private long codeGeneration;
     private boolean closed;
     private final JButton edit = new JButton("Edit Token");
     private final JButton resolve = new JButton("Resolve Conflict…");
@@ -68,6 +74,8 @@ public final class TokenBrowserPanel extends JPanel {
         split.setPreferredSize(new Dimension(960, 480));
         add(split, BorderLayout.CENTER);
         JPanel editing = new JPanel(new GridLayout(0, 1));
+        clipboardStatus.getAccessibleContext().setAccessibleName("TOTP clipboard status");
+        editing.add(clipboardStatus);
         editing.add(alternatives);
         editing.add(edit); editing.add(resolve); resolve.setVisible(false);
         resolve.addActionListener(event -> {
@@ -180,33 +188,59 @@ public final class TokenBrowserPanel extends JPanel {
         editAction.open(base, token.alternatives().get(index), explanation);
     }
 
+    public void copyAction(TotpClipboard.Copy action) {
+        Edt.require(); copyAction = action;
+    }
+
     private void renderCodes(List<TotpDisplay.Display> displays) {
         if (codes.getComponentCount() != displays.size() * 2) {
             // Clear text even on detached components when retiring an old selection.
             for (Component component : codes.getComponents()) {
-                if (component instanceof JLabel label) { label.setText(""); }
+                if (component instanceof JPanel row) {
+                    ((JLabel) row.getComponent(0)).setText("");
+                    ((JButton) row.getComponent(1)).setEnabled(false);
+                }
             }
+            codeGeneration++;
             codes.removeAll();
             for (int i = 0; i < displays.size(); i++) {
                 JLabel code = new JLabel();
                 code.putClientProperty("html.disable", Boolean.TRUE);
                 code.getAccessibleContext().setAccessibleDescription("Current TOTP code; replaced on rollover or selection change.");
-                codes.add(code);
+                JPanel row = new JPanel(new BorderLayout(8, 0));
+                row.add(code, BorderLayout.CENTER);
+                codes.add(row);
                 JProgressBar remaining = new JProgressBar(0, 1000);
                 remaining.getAccessibleContext().setAccessibleName("TOTP time remaining");
                 remaining.setStringPainted(true);
                 codes.add(remaining);
+                JButton copy = new JButton("Copy code");
+                int index = i;
+                long generation = codeGeneration;
+                copy.addActionListener(event -> {
+                    if (!closed && generation == codeGeneration) {
+                        clipboardStatus.setText(totp.copy(index, copyAction));
+                    }
+                });
+                row.add(copy, BorderLayout.EAST);
             }
             codes.revalidate();
         }
         for (int i = 0; i < displays.size(); i++) {
             TotpDisplay.Display display = displays.get(i);
-            JLabel code = (JLabel) codes.getComponent(2 * i);
+            JPanel row = (JPanel) codes.getComponent(2 * i);
+            JLabel code = (JLabel) row.getComponent(0);
             String text = display.label() + ": " + display.code();
             if (!text.equals(code.getText())) { code.setText(text); }
             JProgressBar remaining = (JProgressBar) codes.getComponent(2 * i + 1);
             remaining.setValue(display.remaining());
             remaining.setString(display.countdown());
+            JButton copy = (JButton) row.getComponent(1);
+            copy.setVisible(display.available());
+            copy.setEnabled(!closed && display.available());
+            TokenState token = latest == null || selected == null ? null : latest.token(selected).orElse(null);
+            copy.getAccessibleContext().setAccessibleName("Copy TOTP code"
+                    + (token != null && token.hasConflict() ? " for " + display.label() : ""));
         }
         codes.repaint();
     }
@@ -214,6 +248,7 @@ public final class TokenBrowserPanel extends JPanel {
     public void closing() {
         Edt.require();
         closed = true;
+        clipboardStatus.setText(" ");
         search.setText(""); search.setEnabled(false);
         edit.setEnabled(false); resolve.setEnabled(false);
         totp.clear();

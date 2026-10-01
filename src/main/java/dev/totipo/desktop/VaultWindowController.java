@@ -1,5 +1,7 @@
 package dev.totipo.desktop;
 
+import dev.totipo.desktop.clipboard.TotpClipboard;
+
 import dev.totipo.VaultSession;
 import dev.totipo.VaultState;
 import dev.totipo.desktop.ui.Edt;
@@ -23,6 +25,8 @@ final class VaultWindowController {
     private String retirementReason;
     private VaultState latest;
     private boolean closing;
+    private final Object clipboardOrigin = new Object();
+    private final TotpClipboard clipboard;
 
     // Ownership transfers on successful construction, before start() touches the view/publisher.
     VaultWindowController(VaultSession session, VaultView view, int number,
@@ -32,7 +36,14 @@ final class VaultWindowController {
 
     VaultWindowController(VaultSession session, VaultView view, int number,
                           Consumer<VaultWindowController> closed, Consumer<String> retirementMessage) {
+        this(session, view, number, closed, retirementMessage, null);
+    }
+
+    VaultWindowController(VaultSession session, VaultView view, int number,
+                          Consumer<VaultWindowController> closed, Consumer<String> retirementMessage,
+                          TotpClipboard clipboard) {
         Edt.require();
+        this.clipboard = clipboard;
         this.retirementMessage = retirementMessage;
         this.session = session;
         this.view = view;
@@ -50,6 +61,11 @@ final class VaultWindowController {
         Edt.require();
         try {
             view.actions(this::refresh, this::close);
+            if (clipboard != null) {
+                view.copyAction((code, from, until, now) -> closing
+                        ? TotpClipboard.UNAVAILABLE
+                        : clipboard.copy(clipboardOrigin, code, from, until, now));
+            }
             view.tokenActions(() -> writes.open(latest, null,
                     "A new Create makes a distinct token; it is not a retry of an earlier uncertain publication."), writes::open);
             view.mergeAction(writes::openMerge);
@@ -93,6 +109,7 @@ final class VaultWindowController {
         subscriber.cancel();
         latest = null;
         try {
+            if (clipboard != null) { clipboard.originClosing(clipboardOrigin); }
             gate.closing();
             try { passwords.closing(); }
             finally {

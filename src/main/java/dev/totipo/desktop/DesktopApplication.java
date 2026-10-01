@@ -1,5 +1,7 @@
 package dev.totipo.desktop;
 
+import dev.totipo.desktop.clipboard.TotpClipboard;
+
 import dev.totipo.CreateVaultResult;
 import dev.totipo.OpenResult;
 import dev.totipo.VaultSession;
@@ -25,6 +27,7 @@ public final class DesktopApplication {
     private final ExecutorService executor;
     private final Set<VaultWindowController> controllers = new HashSet<>();
     private boolean busy;
+    private final TotpClipboard clipboard;
     private boolean shuttingDown;
     private boolean disposed;
     private int nextWindow;
@@ -34,7 +37,13 @@ public final class DesktopApplication {
     }
 
     DesktopApplication(VaultAccess access, LauncherView launcher, Function<Path, VaultView> windows) {
+        this(access, launcher, windows, new TotpClipboard());
+    }
+
+    DesktopApplication(VaultAccess access, LauncherView launcher, Function<Path, VaultView> windows,
+                       TotpClipboard clipboard) {
         Edt.require();
+        this.clipboard = clipboard;
         this.access = access;
         this.launcher = launcher;
         this.windows = windows;
@@ -144,7 +153,7 @@ public final class DesktopApplication {
                 controller = new VaultWindowController(session, view, ++nextWindow, this::controllerClosed,
                         reason -> {
                             if (!shuttingDown) { launcher.message("Vault closed — reopen required", reason); }
-                        });
+                        }, clipboard);
             } catch (RuntimeException unexpected) {
                 // No controller accepted ownership; cleanup stays on the application executor.
                 try {
@@ -251,6 +260,7 @@ public final class DesktopApplication {
             return;
         }
         shuttingDown = true;
+        clipboard.shutdown();
         launcher.busy("Closing…", true);
         for (VaultWindowController controller : Set.copyOf(controllers)) {
             controller.close();
