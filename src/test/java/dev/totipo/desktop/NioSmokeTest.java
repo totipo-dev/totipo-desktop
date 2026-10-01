@@ -80,7 +80,7 @@ class NioSmokeTest {
         } finally { Arrays.fill(password, '\0'); executor.shutdown(); }
     }
 
-    private static VaultState observe(dev.totipo.VaultSession session, dev.totipo.TokenId id, String account) throws Exception {
+    static VaultState observe(dev.totipo.VaultSession session, dev.totipo.TokenId id, String account) throws Exception {
         CompletableFuture<VaultState> observed = new CompletableFuture<>();
         session.states().subscribe(new Flow.Subscriber<>() {
             private Flow.Subscription subscription;

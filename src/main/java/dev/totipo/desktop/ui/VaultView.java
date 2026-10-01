@@ -5,6 +5,10 @@ import dev.totipo.TokenAlternative;
 
 /** Vault presentation boundary; all calls are on the EDT. */
 public interface VaultView {
+    default void passwordAction(Runnable action) { }
+    default void editPassword(PasswordChangePanel panel) { }
+    default void retirePassword() { }
+    default void retirementMessage(String message) { }
     @FunctionalInterface
     interface EditAction { void open(VaultState base, TokenAlternative alternative, String explanation); }
     @FunctionalInterface

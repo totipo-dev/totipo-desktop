@@ -1,6 +1,7 @@
 # Desktop architecture
 
-M2b adds explicit field-oriented merge and frozen-resolution decisions to M2a
+M3a adds explicit vault-password change with session retirement on STALE/UNCERTAIN.
+M2b added explicit field-oriented merge and frozen-resolution decisions to M2a
 manual token create/update and explicit publication retry/abandonment, building on
 M1a session/window lifecycle, observation/diagnostics and refresh, and M1b
 logical-token/TOTP browsing. The single-project
@@ -21,6 +22,10 @@ TotipoDesktop: invokeLater
             -> one StateSubscriber / states() subscription
             -> one serialized session executor
             -> at most the latest immutable VaultState reference
+            -> one MutationGate shared by token writes and password change
+            -> one PasswordChangeController / modeless PasswordChangeDialog
+                 -> PasswordChangePanel, with three transient password fields
+                 -> one task-owned PasswordChangeSubmission after validation
             -> one TokenWriteController (create/update OR merge OR capability decision)
                  -> desktop TokenEditorPanel / owned modeless TokenEditDialog
                  -> captured base/alternative for an open editor
@@ -51,7 +56,8 @@ storage-provider behavior is reproduced in this seam.
 
 Each controller owns a separate single-thread executor named `totipo-session-N`.
 It runs token builder factory/setters/save/close, publication retry/capability
-cleanup, and session close. Blocking open, create and close never run on the EDT.
+cleanup, password change, and session close. Blocking open, create, password change
+and close never run on the EDT.
 Executors are explicitly shut down; no shutdown interrupts an in-flight operation.
 The application uses neither SwingWorker nor virtual threads nor reactive libraries.
 Production code remains compatible with Java 17.
@@ -177,7 +183,7 @@ into completeness, uncertainty into success/failure, local publication into remo
 synchronization, or equal causal heads into semantic conflict. No automatic merge,
 retry or invented synchronization semantics are introduced.
 
-Later work includes search/filter/sort, password change, QR/URI import,
+Later work includes search/filter/sort, QR/URI import,
 secret export, clipboard, keychain, remembered
 passwords, recent history, tray, shortcuts, theming, watchers, remote providers,
 installers and release publishing.
@@ -428,3 +434,79 @@ failure; partial Saved/Failed/PublicationUncertain survive partial-close failure
 including ownership of a usable retry successor. Cleanup logs are generic and
 redacted. Tests use public fakes and deterministic latches for these races; the
 real NIO smoke does not attempt to manufacture AdditionalConflict with filesystem races.
+
+## Explicit password-wrapper change (M3a)
+
+The live vault window offers **Change Password…**; the launcher does not. Rewrap
+retains the root and does not rewrite TOKEN objects. There is no fingerprint UI,
+fingerprint authorization, token rewrite, secret rotation, password caching, or
+password recovery subsystem. Only public `VaultSession.changePassword` is invoked.
+
+`MutationGate` is a small EDT-owned per-window reservation. `TokenWriteController`
+keeps its existing token semantics and owns the reservation throughout Create,
+Update, Merge, AdditionalConflict, partial save, and publication retry/stop cleanup.
+`PasswordChangeController` acquires the same reservation before opening its modeless
+form, retaining it throughout submitted work and editable definite failures. The
+gate disables Create/Edit/Resolve/Change Password and rejects stale callbacks as
+well as clicks. A sticky abandoned token-publication notice owns no capability and
+therefore reserves no slot. Password handling never clears that notice.
+
+`PasswordChangePanel` is independently constructible headlessly. The owned
+`PasswordChangeDialog` only supplies the Swing window and forwards close to Cancel
+when cancellation is allowed. The form uses three `JPasswordField`s, calls only
+`getPassword`, and never converts passwords to Strings. `PasswordChangeSubmission`
+reuses `PasswordInput` for current and new arrays: valid UTF-16 and at most 1024
+UTF-8 bytes. Empty and identical passwords are allowed. It compares new and
+confirmation arrays directly and wipes confirmation immediately after comparison
+(or on validation rejection). Rejection wipes current/new too. The panel clears
+all three documents before disabling controls and invoking the submission callback.
+Cancel or vault close clears unsent documents and constructs no operation.
+
+One submission owns the two remaining caller arrays exclusively. It travels only
+to one task on the existing `totipo-session-N` executor, never into application,
+window, state presentation, preferences or recovery state. The blocking call is
+inside `try/finally`; both arrays are overwritten and references dropped on every
+return or exception. Rejected scheduling also wipes the submission. This is
+best-effort caller-buffer hygiene, not secure JVM erasure. There is no new executor,
+SwingWorker, polling, or second subscription. State rendering, selection, Refresh
+and TOTP continue independently while the form or operation is active.
+
+| Password result | Desktop handling |
+| --- | --- |
+| CHANGED | Record positive wrapper acknowledgement, retire form, release reservation, acknowledge concisely. Same session stays open. No browser mutation, token refresh, or reopen. |
+| AUTHENTICATION_FAILED | Explain authentication of observed vault data did not succeed and does not prove mistyping; this attempt did not change the password. Keep session and form, enable fresh explicit entry. |
+| FAILED | Explain definite required observation/staging failure and non-change by this attempt. Keep session and form, enable fresh explicit entry. No uncertainty inferred. |
+| STALE | Explain authenticated root/canonical BASE changed before replacement, which this attempt did not perform. Immediately retire the current session as an unacceptable basis for continued work; require explicit reopen. No either-password claim. |
+| UNCERTAIN | Explain replacement lacked durable acknowledgement and either password may be canonical. Immediately retire session and require explicit reopen/re-observation. No retry handle, automatic retry, rollback, or password preference. |
+
+Password UNCERTAIN is distinct from TOKEN `PublicationUncertain`, `PartialResolution`,
+and `PublicationRetry`. It has no frozen token publication bytes or exact-publication
+retry. The shared gate prevents overlap with live token capabilities; token sticky
+history neither blocks rewrap nor becomes evidence about its outcome.
+
+An unexpected RuntimeException produces no fabricated PasswordChangeResult. The
+controller records the absence of a typed result separately, wipes input, and
+conservatively retires with a generic redacted message explaining that no outcome
+can be inferred. It catches neither Throwable nor Error. SessionClosedException
+uses the ordinary close lifecycle without a fresh password-error workflow. Typed
+result knowledge is recorded before presentation cleanup; a later UI exception
+cannot reclassify it. Cleanup errors are handled separately and redacted.
+
+STALE/UNCERTAIN retirement immediately marks the window closing on EDT, disables
+actions, clears the form, cancels state presentation and stops TOTP through the
+existing close path. Session close is queued on the session executor. After close
+and frame disposal, `DesktopApplication` presents the reopen-required explanation
+through the owning launcher, unless shutdown has begun. The message outlives the
+vault frame; no interactive stale session remains while it is read. There is no
+automatic Open. An explicit subsequent launcher Open creates an ordinary new
+session with no old state, heads, alternatives, partial/retry handles or password
+arrays carried into it.
+
+Window close and application shutdown mark closing immediately, clear unsent
+forms, and queue cleanup/close behind any submitted password call. They never
+interrupt KDF/replacement or wait on EDT. Every eventual typed result retains its
+meaning internally, including CHANGED, but late delivery cannot restore controls,
+reopen the form or show normal success/error UI. STALE/UNCERTAIN close remains
+idempotent. Application shutdown waits for existing controller completion and
+suppresses post-close password messages. Presentation cleanup failure cannot
+prevent queued session close or stop shutdown of other windows.

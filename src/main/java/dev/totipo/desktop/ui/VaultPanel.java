@@ -23,6 +23,7 @@ public final class VaultPanel extends JPanel {
     private final JButton refresh = new JButton("Refresh");
     private final TokenBrowserPanel browser = new TokenBrowserPanel(Clock.systemUTC());
     private final JButton create = new JButton("Create Token");
+    private final JButton changePassword = new JButton("Change Password…");
     private final JLabel writeMessage = new JLabel(" ");
     private final JLabel abandoned = new JLabel(" ");
     private final JPanel uncertainty = new JPanel(new BorderLayout(4, 4));
@@ -40,6 +41,7 @@ public final class VaultPanel extends JPanel {
         heading.add(progress);
         heading.add(refresh);
         heading.add(create);
+        heading.add(changePassword);
         create.setEnabled(false);
         heading.add(writeMessage);
         heading.add(abandoned);
@@ -54,12 +56,16 @@ public final class VaultPanel extends JPanel {
         progress.setIndeterminate(true);
     }
 
+    public void passwordAction(Runnable action) {
+        Edt.require(); changePassword.addActionListener(event -> action.run());
+    }
     public void mergeAction(VaultView.MergeAction action) { browser.onMerge(action); }
     public void tokenActions(Runnable action, VaultView.EditAction edit) {
         Edt.require(); create.addActionListener(event -> action.run()); browser.onEdit(edit);
     }
     public void writeAvailability(boolean available) {
         Edt.require(); writeAvailable = available;
+        changePassword.setEnabled(available);
         create.setEnabled(available && observed); browser.writeAvailability(available);
     }
     public void writeMessage(String text) { Edt.require(); writeMessage.setText(text); }

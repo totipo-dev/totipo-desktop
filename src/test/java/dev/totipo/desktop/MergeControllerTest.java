@@ -16,6 +16,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MergeControllerTest {
     static final class View extends Window {
+        Runnable passwordAction;
+        int passwordForms;
+        @Override public void passwordAction(Runnable action) { passwordAction = action; }
+        @Override public void editPassword(PasswordChangePanel panel) { passwordForms++; }
+        void passwordBlocked() { passwordAction.run(); assertEquals(0, passwordForms); }
         MergeAction merge;
         Runnable create;
         EditAction edit;
@@ -44,6 +49,7 @@ class MergeControllerTest {
         }
         @Override public void confirmOriginalResolution(Runnable action) { confirm = action; events.add("confirm"); }
         @Override public void mergePublicationUncertain(boolean original, boolean busy, Runnable retry, Runnable stop) {
+            passwordBlocked();
             Edt.require(); this.retry = retry; this.stop = stop; if (!busy) { events.add("uncertain"); }
         }
         @Override public void clearUncertainty() { review = null; publish = null; cancel = null; confirm = null; retry = null; stop = null; }
@@ -60,13 +66,17 @@ class MergeControllerTest {
             controller = onEdt(() -> new VaultWindowController(session, view, 92, c -> retired.countDown()));
             edt(() -> { controller.start(); session.subscriber.onNext(fake.state); }); edt(() -> {});
         }
-        void event(String expected) throws Exception { assertEquals(expected, view.events.poll(10, TimeUnit.SECONDS)); }
+        void event(String expected) throws Exception {
+            assertEquals(expected, view.events.poll(10, TimeUnit.SECONDS));
+            if (!expected.equals("finished")) { edt(view::passwordBlocked); }
+        }
         void open() throws Exception { edt(() -> view.merge.open(fake.state, fake.token)); event("editor"); }
         void save() throws Exception {
             edt(() -> {
                 button(view.editor, "Continue").doClick();
                 for (var box : boxes(view.editor)) { box.setSelectedIndex(0); }
                 assertTrue(button(view.editor, "Save").isEnabled()); button(view.editor, "Save").doClick();
+                view.passwordBlocked();
             });
         }
         void decision(Partial partial, Recording latest) throws Exception {

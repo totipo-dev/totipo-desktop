@@ -10,6 +10,7 @@ final class TokenWriteController {
     private enum Outcome { SAVED, UNCERTAIN, FAILED, INTERNAL_FAILURE }
     private final Executor executor;
     private final VaultView view;
+    private final MutationGate gate;
     private final Runnable closeSession;
     private TokenEditorPanel editor;
     private MergeEditorPanel mergeEditor;
@@ -26,30 +27,29 @@ final class TokenWriteController {
     private boolean create;
     private PublicationRetry retry; // Session executor only, including cleanup.
 
-    TokenWriteController(Executor executor, VaultView view, Runnable closeSession) {
-        this.executor = executor; this.view = view; this.closeSession = closeSession;
+    TokenWriteController(Executor executor, VaultView view, Runnable closeSession, MutationGate gate) {
+        this.executor = executor; this.view = view; this.closeSession = closeSession; this.gate = gate;
     }
 
     void open(VaultState base, TokenAlternative alternative, String explanation) {
         Edt.require();
-        if (closing || active || base == null) { return; }
+        if (closing || active || base == null || !gate.acquire(this)) { return; }
         active = true;
         merge = false; original = false;
         create = alternative == null;
         editor = new TokenEditorPanel(create ? null : alternative.descriptor(), explanation,
                 draft -> submit(base, alternative, draft), this::cancel);
-        view.writeAvailability(false);
         view.editToken(editor, create);
     }
 
     void openMerge(VaultState base, TokenState token) {
         Edt.require();
         if (closing || active || base == null || token == null || !token.hasConflict()
-                || token.alternatives().size() < 2) { return; }
+                || token.alternatives().size() < 2 || !gate.acquire(this)) { return; }
         active = true; merge = true; original = false; create = false;
         mergeId = token.id();
         mergeEditor = new MergeEditorPanel(MergeInputs.capture(base, token), this::submitMerge, this::cancel);
-        view.writeAvailability(false); view.editMerge(mergeEditor);
+        view.editMerge(mergeEditor);
     }
 
     private void submitMerge(MergeDraft draft) {
@@ -270,7 +270,7 @@ final class TokenWriteController {
         retireEditor(); active = false; pending = false; decision = false; reviewBase = null;
         view.clearUncertainty();
         view.abandonedPublication(abandoned);
-        view.writeAvailability(!closing);
+        gate.release(this);
     }
     void closing() {
         Edt.require(); closing = true; retireEditor(); active = false; pending = false; decision = false; reviewBase = null;

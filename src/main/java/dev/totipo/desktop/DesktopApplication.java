@@ -141,7 +141,10 @@ public final class DesktopApplication {
             VaultWindowController controller;
             try {
                 view = windows.apply(directory);
-                controller = new VaultWindowController(session, view, ++nextWindow, this::controllerClosed);
+                controller = new VaultWindowController(session, view, ++nextWindow, this::controllerClosed,
+                        reason -> {
+                            if (!shuttingDown) { launcher.message("Vault closed — reopen required", reason); }
+                        });
             } catch (RuntimeException unexpected) {
                 // No controller accepted ownership; cleanup stays on the application executor.
                 try {

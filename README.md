@@ -1,6 +1,6 @@
 # Totipo Desktop
 
-A Java/Swing desktop application for Totipo. Current status: **M2b explicit merge/conflict resolution**, alongside token create,
+A Java/Swing desktop application for Totipo. Current status: **M3a explicit vault-password change**, alongside merge/conflict resolution, token create,
 ordinary update, and publication uncertainty. The application supports local
 vault create/open, observation and diagnostics, read-only logical-token/TOTP
 browsing, manual Base32 token creation, and ordinary update of an explicitly
@@ -8,6 +8,15 @@ selected semantic alternative. Independent vault windows own their sessions and
 close them during window/application shutdown. Refresh requests local observation.
 
 Each vault window allows one write workflow at a time.
+**Change Password…** accepts current/new/confirmation passwords and shares that
+workflow slot with token editors and publication decisions. An acknowledged change
+keeps the existing session open and preserves its root and tokens. Authentication
+or definite observation/staging failure keeps the session usable and requires fresh
+entry for another attempt. STALE and UNCERTAIN retire the session and require
+explicit Open Vault. Password-change UNCERTAIN has no retry capability, automatic
+retry, rollback, or preferred recovery password. Earlier unresolved token-publication
+warnings remain independent.
+
 Updates can change status (ACTIVE/TOMBSTONED) and optionally replace the secret;
 existing secrets are never exported. Conflicted tokens require explicit
 alternative selection for **Edit Alternative…**, which changes only that alternative.
@@ -24,6 +33,9 @@ open session: publication may already have occurred. Starting Create again makes
 a distinct token, not a retry. Acknowledged publication and finished local
 observation do not mean synchronization, freshness or complete history.
 Protocol target: Totipo Vault Format **v1/r17**, through pinned Totipo Java.
+Local configured-store acknowledgement is not remote synchronization or rollback
+protection. Provider qualification remains limited; local NIO integration tests do
+not establish guarantees for arbitrary filesystems or remote providers.
 
 Clone with the exact dependency checkout:
 
@@ -67,3 +79,4 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for threading, state, and ownership polic
 See also the [M1b report](review/M1B_READ_ONLY_TOKEN_REPORT.md) and
 [M2a review report](review/M2A_CREATE_UPDATE_PUBLICATION_REPORT.md) and
 [M2b review report](review/M2B_MERGE_RESOLUTION_REPORT.md).
+See the [M3a password-change report](review/M3A_PASSWORD_CHANGE_REPORT.md) for lifecycle and validation evidence.

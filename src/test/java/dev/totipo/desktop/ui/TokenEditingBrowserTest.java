@@ -94,7 +94,7 @@ class TokenEditingBrowserTest {
         return null;
     }
 
-    private static TotpDisplay display(TokenBrowserPanel panel) {
+    static TotpDisplay display(TokenBrowserPanel panel) {
         try {
             Field field = TokenBrowserPanel.class.getDeclaredField("totp"); field.setAccessible(true);
             return (TotpDisplay) field.get(panel);

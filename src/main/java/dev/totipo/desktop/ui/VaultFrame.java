@@ -12,6 +12,7 @@ public final class VaultFrame extends JFrame implements VaultView {
     private static final long serialVersionUID = 1L;
     private final VaultPanel panel = new VaultPanel();
     private javax.swing.JDialog editor;
+    private PasswordChangeDialog passwordDialog;
 
     public VaultFrame(Path directory) {
         super("Totipo — " + directory);
@@ -28,6 +29,15 @@ public final class VaultFrame extends JFrame implements VaultView {
         addWindowListener(new WindowAdapter() {
             @Override public void windowClosing(WindowEvent event) { close.run(); }
         });
+    }
+    @Override public void passwordAction(Runnable action) { panel.passwordAction(action); }
+    @Override public void editPassword(PasswordChangePanel content) {
+        passwordDialog = new PasswordChangeDialog(this, content); passwordDialog.setVisible(true);
+    }
+    @Override public void retirePassword() {
+        if (passwordDialog != null) {
+            PasswordChangeDialog owned = passwordDialog; passwordDialog = null; owned.dispose();
+        }
     }
     @Override public void mergeAction(MergeAction action) { panel.mergeAction(action); }
     @Override public void editMerge(MergeEditorPanel content) {

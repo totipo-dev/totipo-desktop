@@ -17,18 +17,32 @@ final class VaultWindowController {
     private final ExecutorService executor;
     private final StateSubscriber subscriber;
     private final TokenWriteController writes;
+    private final PasswordChangeController passwords;
+    private final MutationGate gate;
+    private final Consumer<String> retirementMessage;
+    private String retirementReason;
     private VaultState latest;
     private boolean closing;
 
     // Ownership transfers on successful construction, before start() touches the view/publisher.
     VaultWindowController(VaultSession session, VaultView view, int number,
                           Consumer<VaultWindowController> closed) {
+        this(session, view, number, closed, view::retirementMessage);
+    }
+
+    VaultWindowController(VaultSession session, VaultView view, int number,
+                          Consumer<VaultWindowController> closed, Consumer<String> retirementMessage) {
         Edt.require();
+        this.retirementMessage = retirementMessage;
         this.session = session;
         this.view = view;
         this.closed = closed;
         executor = Executors.newSingleThreadExecutor(task -> new Thread(task, "totipo-session-" + number));
-        writes = new TokenWriteController(executor, view, this::close);
+        gate = new MutationGate(view::writeAvailability);
+        writes = new TokenWriteController(executor, view, this::close, gate);
+        passwords = new PasswordChangeController(session, executor, view, gate, reason -> {
+            if (!closing) { retirementReason = reason; close(); }
+        });
         subscriber = new StateSubscriber(this::render, () -> close(true), this::close);
     }
 
@@ -39,6 +53,7 @@ final class VaultWindowController {
             view.tokenActions(() -> writes.open(latest, null,
                     "A new Create makes a distinct token; it is not a retry of an earlier uncertain publication."), writes::open);
             view.mergeAction(writes::openMerge);
+            view.passwordAction(passwords::open);
             view.showWindow();
             session.states().subscribe(subscriber);
         } catch (RuntimeException unexpected) {
@@ -78,11 +93,18 @@ final class VaultWindowController {
         subscriber.cancel();
         latest = null;
         try {
-            writes.closing();
-            view.closing();
+            gate.closing();
+            try { passwords.closing(); }
+            finally {
+                try { writes.closing(); }
+                finally { view.closing(); }
+            }
             if (failed) {
                 view.failure();
             }
+        } catch (RuntimeException cleanupFailure) {
+            // Presentation cleanup must not prevent this or other application sessions closing.
+            System.err.println("Totipo: session presentation cleanup failure (details redacted).");
         } finally {
             executor.execute(() -> {
                 boolean closeFailed = false;
@@ -103,7 +125,9 @@ final class VaultWindowController {
                             try {
                                 view.dispose();
                             } finally {
-                                closed.accept(this);
+                                try {
+                                    if (retirementReason != null) { retirementMessage.accept(retirementReason); }
+                                } finally { closed.accept(this); }
                             }
                         }
                     });
