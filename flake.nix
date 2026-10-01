@@ -2,6 +2,8 @@
   description = "Development environment for totipo-desktop";
 
   inputs = {
+    # Include the pinned checked-out composite build in ordinary `nix build .`.
+    self.submodules = true;
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     llm-agents.url = "github:numtide/llm-agents.nix";
@@ -20,6 +22,13 @@
       in
       {
         formatter = pkgs.nixpkgs-fmt;
+
+        packages = pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+          default = pkgs.callPackage ./package.nix {
+            jdk = pkgs.jdk25;
+            gradle = pkgs.gradle_9.override { java = pkgs.jdk25; };
+          };
+        };
 
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [

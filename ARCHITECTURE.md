@@ -605,3 +605,26 @@ can read or retain the code. Totipo cannot delete those copies. JDK Clipboard of
 no atomic cross-application compare-and-set: the marker check and replacement are
 separate platform calls. This is a conservative best-effort current-content cleanup,
 not secure erasure or a guarantee against concurrent OS clipboard activity.
+
+## Packaging boundary (M4a)
+
+The Gradle application distribution is the canonical launcher plus runtime-JAR
+layout. The Linux Nix derivation consumes that layout and fixes JAVA_HOME to the
+full pinned desktop-capable JDK; it does not introduce another application entry
+point or storage policy. Generic archives rely on user-supplied Java 17 or newer.
+VERSION is shared by Gradle and Nix; it identifies a development state until a
+candidate is deliberately chosen. Package construction does not declare a release.
+
+Only generated launch scripts default to `-XX:+DisableAttachMechanism`, reducing
+JVM Attach API availability in this password/TOTP application. It does not prevent
+same-user inspection or memory attacks. Development `run` remains debuggable.
+Distribution verification permits only desktop/core/storage-nio/Bouncy Castle
+JARs and license material; it checks all Totipo production classfiles for Java 17.
+No runtime reduction, update network path, icon, default vault path or installer
+framework is introduced. Packaging and vault storage remain separate.
+
+The explicit filesystem harness is separate from both production and default
+CI tests. It consumes public high-level NioTotipo APIs beneath an operator-chosen
+test root, with a unique disposable child and bounded observation waits. Native
+GUI/clipboard and filesystem qualification remain evidence about exact environments,
+not protocol guarantees or general platform support.

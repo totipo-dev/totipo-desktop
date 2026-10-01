@@ -1,6 +1,8 @@
 # Totipo Desktop
 
-A Java/Swing desktop application for Totipo. Current status: **M3c explicit TOTP clipboard copying**, alongside merge/conflict resolution, token create,
+A Java/Swing desktop application for Totipo. Current status: **M4a release
+hardening, unreleased and NOT QUALIFIED**. The feature set includes explicit
+TOTP clipboard copying, alongside merge/conflict resolution, token create,
 ordinary update, and publication uncertainty. The application supports local
 vault create/open, observation and diagnostics, read-only logical-token/TOTP
 browsing, manual Base32 token creation, and ordinary update of an explicitly
@@ -107,3 +109,114 @@ See also the [M1b report](review/M1B_READ_ONLY_TOKEN_REPORT.md) and
 [M2a review report](review/M2A_CREATE_UPDATE_PUBLICATION_REPORT.md) and
 [M2b review report](review/M2B_MERGE_RESOLUTION_REPORT.md).
 See the [M3a password-change report](review/M3A_PASSWORD_CHANGE_REPORT.md) for lifecycle and validation evidence.
+
+## Packaging and qualification (M4a)
+
+No first release has been declared. **Linux is the first desktop qualification
+target.** Current release status is **NOT QUALIFIED**; see the exact evidence in
+[QUALIFICATION.md](QUALIFICATION.md) and the blocking
+[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md). Build success is not native GUI,
+clipboard, accessibility, or filesystem support qualification.
+
+Development remains `./gradlew run`. To build the canonical generic distribution:
+
+```sh
+./gradlew clean build installDist distTar distZip verifyDistributionArchives
+build/install/totipo-desktop/bin/totipo-desktop
+```
+
+`build/distributions` contains the ZIP and TAR. Both contain generated launchers,
+the application JAR, core/storage-nio/Bouncy Castle runtime JARs, and licenses.
+They **do not include Java**: install **Java 17 or newer** and set `JAVA_HOME` or
+provide `java` on PATH. Production bytecode remains Java 17. This environment has
+JDK 25 only; Java 17 runtime and native packaged launch remain UNQUALIFIED.
+`verifyDistribution` checks the installed layout; `verifyDistributionArchives`
+also compares both archives against it. Generated launchers disable JVM Attach
+API availability with `-XX:+DisableAttachMechanism`; this does not prevent
+same-user process inspection or memory attacks. Development `run` is unchanged.
+
+`VERSION` is the single application-version source. It currently names an
+unreleased development state. `./gradlew validateVersion -PreleaseBuild=true`
+intentionally fails until an actual candidate version replaces the sentinel.
+Missing, empty, whitespace-bearing, or unsafe filename versions fail configuration.
+
+### Nix package foundation — operator-validated build
+
+The flake exposes a Linux-only package using the full pinned `jdk25`, Gradle 9
+and the same `installDist`. Existing dev-shell/jailed-agent inputs remain intact.
+Use a recent Nix supporting `inputs.self.submodules`; initialize the pinned
+submodule first:
+
+```sh
+nix flake check
+nix build .
+nix run .
+# Native qualification must also use the installed command:
+./result/bin/totipo-desktop
+```
+
+The wrapper fixes `JAVA_HOME` to the managed full JDK and supplies launcher shell
+utilities. Runtime use requires neither Gradle, checkout/vendor sources nor shell
+Java configuration. The desktop entry is Totipo / Utility / Terminal=false, with
+no handlers, autostart or placeholder icon. Vaults remain user-selected paths;
+installation directories are never vault storage.
+
+**M4a validation status:** The operator generated `package-deps.json` through the
+official workflow and reports successful Nix execution after fixing the missing
+SPEC_PIN source-filter entry, UTF-8 filename locale and desktop-category assertion.
+The completion pass independently inspected configuration/cache data and reran
+non-Nix checks; it did not invoke Nix by explicit instruction. Exact forced-rebuild
+comparison and native qualification remain unrecorded/UNQUALIFIED. See the M4a
+report for evidence ownership and the recorded output reference. No dependency
+hashes were hand-edited.
+
+From the repository root, generate/refresh using the official update script:
+
+```sh
+update_script=$(nix build --no-link --print-out-paths .#packages.x86_64-linux.default.mitmCache.updateScript)
+"$update_script"
+nix build .
+```
+
+Substitute `aarch64-linux` only when qualifying that system. For this uncommitted
+review (new files are deliberately unstaged), use `path:.` in place of `.` in
+both commands: Git-based flake sources omit untracked files. Do not update
+`flake.lock`, the submodule or Gradle verification hashes just to make the build
+pass. Review `package-deps.json`, then verify a sandboxed build with strict
+verification/locking and `nix build --rebuild .`; an ordinary second build only
+proves cache reuse. The update task also runs composite checks, so dependencies
+needed by vendor tests enter the cache. MITM transport does not waive Gradle's
+artifact hash verification.
+
+The derivation sets `LC_ALL=C.UTF-8` for dependency fetching and package tests.
+NIO filename encoding follows the native locale: `-Dfile.encoding=UTF-8` alone
+does not make Unicode paths representable under the C locale. After changing
+`package.nix`, regenerate the update script with the command above; an existing
+Nix-store script still references its original derivation/source snapshot.
+
+Pinned nixpkgs supplies Gradle **9.7.1**, running on the same JDK 25. The developer
+and CI wrapper remains **9.8.0**. See the M4a report for compatibility evidence;
+the operator reports successful MITM/package execution. Nix's patched Gradle and
+official setup hook are retained instead of introducing a separate wrapper download in the build.
+
+### Explicit filesystem qualification
+
+Create/select an empty disposable test root on each filesystem to be claimed:
+
+```sh
+./gradlew filesystemQualification -PqualificationRoot=/explicit/disposable/test/root
+```
+
+No default root is provided. The harness creates a unique `totipo-qualification-`
+child, uses only test credentials, and deletes only that child without following
+symlinks. Keep the selected root private and do not use production vault storage.
+Cleanup failure prints the exact remaining test directory. Record the non-secret
+environment output and checklist results in QUALIFICATION.md; omit the root path.
+A pass applies only to that tested environment, not other Linux filesystems,
+network shares, cloud synchronization or FUSE configurations.
+
+Updates are manual. M4a adds no updater, native installers, signing, tags or
+publication. Future final artifacts get SHA-256 checksums with
+`scripts/sha256-release-artifacts.sh FILE [FILE ...]`; it does not change or upload
+files. See [THIRD_PARTY.md](THIRD_PARTY.md) for the production inventory and
+[the M4a report](review/M4A_RELEASE_HARDENING_REPORT.md) for all limitations.
