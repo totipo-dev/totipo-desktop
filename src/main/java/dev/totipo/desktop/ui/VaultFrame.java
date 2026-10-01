@@ -19,7 +19,7 @@ public final class VaultFrame extends JFrame implements VaultView {
         Edt.require();
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         setContentPane(panel);
-        pack();
+        SwingUsability.fit(this, 1100, 850);
         setLocationByPlatform(true);
     }
 
@@ -44,10 +44,11 @@ public final class VaultFrame extends JFrame implements VaultView {
         editor = new javax.swing.JDialog(this, "Resolve Conflict", false);
         editor.setDefaultCloseOperation(javax.swing.JDialog.DO_NOTHING_ON_CLOSE);
         editor.setContentPane(content);
+        content.installDialog(editor.getRootPane());
         editor.addWindowListener(new WindowAdapter() {
             @Override public void windowClosing(WindowEvent event) { content.cancel(); }
         });
-        editor.setSize(850, 800); editor.setLocationRelativeTo(this); editor.setVisible(true);
+        SwingUsability.fit(editor, 850, 800); editor.setLocationRelativeTo(this); editor.setVisible(true);
     }
     @Override public void additionalConflict(Runnable review, Runnable publish, Runnable cancel) {
         panel.additionalConflict(review, publish, cancel);
@@ -82,6 +83,6 @@ public final class VaultFrame extends JFrame implements VaultView {
         JOptionPane.showMessageDialog(this, "This vault session is unusable and will close.",
                 "Session failure", JOptionPane.ERROR_MESSAGE);
     }
-    @Override public void showWindow() { Edt.require(); setVisible(true); }
+    @Override public void showWindow() { Edt.require(); setVisible(true); javax.swing.SwingUtilities.invokeLater(() -> { if (isShowing()) { panel.focusSearch(); } }); }
     @Override public void dispose() { Edt.require(); super.dispose(); }
 }

@@ -40,6 +40,7 @@ final class TokenPresentation {
         StringBuilder out = new StringBuilder("Token ID: " + token.id().hex() + "\n");
         out.append(token.hasConflict() ? "CONFLICT — distinct complete token values\n" : "No semantic conflict observed\n");
         List<TokenAlternative> alternatives = token.alternatives();
+        out.append("Complete alternatives shown: ").append(alternatives.size()).append('\n');
         if (alternatives.isEmpty()) {
             out.append("No complete token value is currently available from the local observation.\n");
         } else if (!token.hasConflict() && alternatives.size() == 1 && token.heads().size() > 1) {

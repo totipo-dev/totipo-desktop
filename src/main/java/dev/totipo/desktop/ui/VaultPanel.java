@@ -20,9 +20,13 @@ public final class VaultPanel extends JPanel {
     private final JLabel status = new JLabel("Waiting for local observation…");
     private final JProgressBar progress = new JProgressBar(0, 1000);
     private final JTextArea diagnostics = new JTextArea(8, 48);
-    private final JButton refresh = new JButton("Refresh");
+    private transient Runnable refreshCallback = () -> { };
+    private transient Runnable createCallback = () -> { };
+    final transient javax.swing.Action refreshAction = SwingUsability.action("Refresh", () -> refreshCallback.run());
+    final transient javax.swing.Action createAction = SwingUsability.action("Create Token", () -> createCallback.run());
+    private final JButton refresh = new JButton(refreshAction);
     private final TokenBrowserPanel browser = new TokenBrowserPanel(Clock.systemUTC());
-    private final JButton create = new JButton("Create Token");
+    private final JButton create = new JButton(createAction);
     private final JButton changePassword = new JButton("Change Password…");
     private final JLabel writeMessage = new JLabel(" ");
     private final JLabel abandoned = new JLabel(" ");
@@ -33,6 +37,15 @@ public final class VaultPanel extends JPanel {
     public VaultPanel() {
         Edt.require();
         setLayout(new BorderLayout(12, 12));
+        SwingUsability.bind(this, WHEN_IN_FOCUSED_WINDOW, javax.swing.KeyStroke.getKeyStroke("F5"), "refresh", refreshAction);
+        SwingUsability.bind(this, WHEN_IN_FOCUSED_WINDOW, javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_N, SwingUsability.menuMask()), "create", createAction);
+        SwingUsability.bind(this, WHEN_IN_FOCUSED_WINDOW, javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_F, SwingUsability.menuMask()), "find", SwingUsability.action("Find", browser::focusSearch));
+        refresh.setMnemonic('R'); create.setMnemonic('N'); changePassword.setMnemonic('P');
+        refresh.setToolTipText("Refresh (F5)"); create.setToolTipText("Create Token (menu shortcut + N)");
+        status.getAccessibleContext().setAccessibleDescription("Local observation status");
+        progress.getAccessibleContext().setAccessibleName("Local observation progress");
+        diagnostics.getAccessibleContext().setAccessibleName("Local observation diagnostics");
+        uncertainty.getAccessibleContext().setAccessibleName("Publication decision");
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         JPanel heading = new JPanel();
         heading.setLayout(new BoxLayout(heading, BoxLayout.Y_AXIS));
@@ -42,7 +55,7 @@ public final class VaultPanel extends JPanel {
         heading.add(refresh);
         heading.add(create);
         heading.add(changePassword);
-        create.setEnabled(false);
+        createAction.setEnabled(false);
         heading.add(writeMessage);
         heading.add(abandoned);
         heading.add(uncertainty);
@@ -56,17 +69,19 @@ public final class VaultPanel extends JPanel {
         progress.setIndeterminate(true);
     }
 
+    public void focusSearch() { browser.focusSearch(); }
+
     public void passwordAction(Runnable action) {
         Edt.require(); changePassword.addActionListener(event -> action.run());
     }
     public void mergeAction(VaultView.MergeAction action) { browser.onMerge(action); }
     public void tokenActions(Runnable action, VaultView.EditAction edit) {
-        Edt.require(); create.addActionListener(event -> action.run()); browser.onEdit(edit);
+        Edt.require(); createCallback = action; browser.onEdit(edit);
     }
     public void writeAvailability(boolean available) {
         Edt.require(); writeAvailable = available;
         changePassword.setEnabled(available);
-        create.setEnabled(available && observed); browser.writeAvailability(available);
+        createAction.setEnabled(available && observed); browser.writeAvailability(available);
     }
     public void writeMessage(String text) { Edt.require(); writeMessage.setText(text); }
     public void abandonedPublication(boolean value) {
@@ -102,7 +117,7 @@ public final class VaultPanel extends JPanel {
         JTextArea text = new JTextArea("New relevant token information was observed before this merge could be published. Nothing from this merge has been published.");
         text.setEditable(false); text.setLineWrap(true); text.setWrapStyleWord(true); text.setRows(2);
         uncertainty.add(text, BorderLayout.CENTER);
-        JPanel choices = new JPanel();
+        JPanel choices = new JPanel(new GridLayout(0, 1));
         String[] labels = {"Review latest and merge again", "Publish original resolution anyway", "Cancel"};
         Runnable[] actions = {review, publish, cancel};
         for (int i = 0; i < labels.length; i++) {
@@ -125,13 +140,13 @@ public final class VaultPanel extends JPanel {
 
     public void onRefresh(Runnable action) {
         Edt.require();
-        refresh.addActionListener(event -> action.run());
+        refreshCallback = action;
     }
 
     public void render(VaultState state) {
         Edt.require();
         observed = true;
-        create.setEnabled(writeAvailable);
+        createAction.setEnabled(writeAvailable);
         ObservationProgress observation = state.observation();
         if (observation instanceof ObservationProgress.Enumerating enumerating) {
             status.setText("Observing local vault — discovered " + enumerating.discovered() + " objects");
@@ -163,7 +178,7 @@ public final class VaultPanel extends JPanel {
         Edt.require();
         writeAvailability(false);
         browser.closing();
-        refresh.setEnabled(false);
+        refreshAction.setEnabled(false);
         status.setText("Closing…");
         progress.setIndeterminate(false);
     }

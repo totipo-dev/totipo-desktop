@@ -13,9 +13,10 @@ final class PasswordChangeDialog extends JDialog {
         Edt.require();
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         setContentPane(panel);
+        panel.installDialog(getRootPane());
         addWindowListener(new WindowAdapter() {
             @Override public void windowClosing(WindowEvent event) { panel.cancel(); }
         });
-        pack(); setLocationRelativeTo(owner);
+        pack(); SwingUsability.fit(this, getWidth(), getHeight()); setLocationRelativeTo(owner);
     }
 }

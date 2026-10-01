@@ -19,6 +19,8 @@ public final class TokenBrowserPanel extends JPanel {
     private final transient TotpDisplay totp;
     private transient VaultState latest;
     private transient TokenId selected;
+    final JTextField search = new JTextField(24);
+    final JLabel resultCount = new JLabel("Waiting for observation");
     private boolean rebuilding;
     private boolean closed;
     private final JButton edit = new JButton("Edit Token");
@@ -32,15 +34,36 @@ public final class TokenBrowserPanel extends JPanel {
         Edt.require();
         setLayout(new BorderLayout());
         totp = new TotpDisplay(clock, this::renderCodes);
+        JPanel searchBar = new JPanel(new BorderLayout(8, 4));
+        searchBar.add(SwingUsability.label("Search tokens", search), BorderLayout.WEST);
+        searchBar.add(search, BorderLayout.CENTER); searchBar.add(resultCount, BorderLayout.EAST);
+        search.getAccessibleContext().setAccessibleDescription("Filter by token ID, issuer or account. Escape clears search.");
+        add(searchBar, BorderLayout.NORTH);
+        search.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { filter(false); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { filter(false); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { filter(false); }
+        });
+        SwingUsability.bind(search, WHEN_FOCUSED, KeyStroke.getKeyStroke("ESCAPE"), "clear-search",
+                SwingUsability.action("Clear search", () -> { if (!search.getText().isEmpty()) { search.setText(""); } }));
+        alternatives.getAccessibleContext().setAccessibleName("Alternative to edit");
+        edit.getAccessibleContext().setAccessibleDescription("Edit the selected token or explicitly chosen alternative.");
+        resolve.getAccessibleContext().setAccessibleDescription("Open conflict resolution for competing alternatives.");
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         list.setCellRenderer(new LiteralRenderer());
         list.getAccessibleContext().setAccessibleName("Logical tokens");
+        detail.setLineWrap(true); detail.setWrapStyleWord(true);
         detail.setEditable(false); // JTextArea always renders stored text literally, never as HTML.
         detail.getAccessibleContext().setAccessibleName("Selected token details");
         JPanel right = new JPanel(new BorderLayout());
-        right.add(codes, BorderLayout.NORTH);
+        JScrollPane codeScroll = new JScrollPane(codes);
+        codeScroll.setPreferredSize(new Dimension(300, 110));
+        right.add(codeScroll, BorderLayout.NORTH);
         right.add(new JScrollPane(detail), BorderLayout.CENTER);
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, new JScrollPane(list), right);
+        split.getLeftComponent().setMinimumSize(new Dimension(180, 80));
+        split.setDividerLocation(280);
+        right.setMinimumSize(new Dimension(180, 80));
         split.setResizeWeight(0.3);
         split.setPreferredSize(new Dimension(960, 480));
         add(split, BorderLayout.CENTER);
@@ -80,26 +103,38 @@ public final class TokenBrowserPanel extends JPanel {
         if (closed) { return; }
         totp.clear();
         latest = state;
+        filter(true);
+    }
+
+    private void filter(boolean stateChanged) {
+        if (closed || latest == null) { return; }
+        TokenId previous = selected;
         rebuilding = true;
         try {
             rows.clear();
             int selectedIndex = -1;
-            for (TokenState token : state.tokens()) {
+            for (TokenState token : latest.tokens()) {
+                if (!TokenSearch.matches(token, search.getText())) { continue; }
                 if (token.id().equals(selected)) { selectedIndex = rows.size(); }
                 rows.addElement(TokenPresentation.row(token));
             }
             list.setSelectedIndex(selectedIndex);
             if (selectedIndex == -1) { selected = null; }
         } finally { rebuilding = false; }
-        renderSelection();
+        int total = latest.tokens().size();
+        resultCount.setText(search.getText().isEmpty() ? total + " tokens" : rows.size() + " of " + total + " tokens");
+        if (stateChanged || selected == null || !selected.equals(previous)) { renderSelection(); }
     }
+
+    public void focusSearch() { search.requestFocusInWindow(); search.selectAll(); }
 
     private void renderSelection() {
         totp.clear();
         TokenState token = selected == null || latest == null ? null : latest.token(selected).orElse(null);
         if (token == null) {
             selected = null;
-            detail.setText("Select a token to view details.");
+            detail.setText(latest != null && latest.tokens().isEmpty() ? "No tokens are currently observed."
+                    : latest != null && rows.isEmpty() ? "No tokens match this search." : "Select a token to view details.");
         } else {
             detail.setText(TokenPresentation.detail(token));
             totp.select(latest, token);
@@ -155,8 +190,10 @@ public final class TokenBrowserPanel extends JPanel {
             for (int i = 0; i < displays.size(); i++) {
                 JLabel code = new JLabel();
                 code.putClientProperty("html.disable", Boolean.TRUE);
+                code.getAccessibleContext().setAccessibleDescription("Current TOTP code; replaced on rollover or selection change.");
                 codes.add(code);
                 JProgressBar remaining = new JProgressBar(0, 1000);
+                remaining.getAccessibleContext().setAccessibleName("TOTP time remaining");
                 remaining.setStringPainted(true);
                 codes.add(remaining);
             }
@@ -177,6 +214,7 @@ public final class TokenBrowserPanel extends JPanel {
     public void closing() {
         Edt.require();
         closed = true;
+        search.setText(""); search.setEnabled(false);
         edit.setEnabled(false); resolve.setEnabled(false);
         totp.clear();
         latest = null;

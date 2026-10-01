@@ -13,8 +13,8 @@ import javax.swing.*;
 /** Literal Swing fields own input, never a core builder or existing secret. */
 public final class TokenEditorPanel extends JPanel {
     private static final long serialVersionUID = 1L;
-    final JTextField issuer = new JTextField();
-    final JTextField account = new JTextField();
+    final JTextField issuer = new JTextField(24);
+    final JTextField account = new JTextField(24);
     final JComboBox<TotpAlgorithm> algorithm = new JComboBox<>(TotpAlgorithm.values());
     final JComboBox<TokenStatus> status = new JComboBox<>(TokenStatus.values());
     final JTextField digits = new JTextField("6");
@@ -41,16 +41,16 @@ public final class TokenEditorPanel extends JPanel {
             algorithm.setSelectedItem(descriptor.algorithm());
             digits.setText(Integer.toString(descriptor.digits()));
             period.setText(Long.toString(descriptor.period().getSeconds()));
-            fields.add(new JLabel("Status")); fields.add(status);
+            fields.add(SwingUsability.label("Status", status)); fields.add(status);
         }
-        fields.add(new JLabel("Issuer")); fields.add(issuer);
-        fields.add(new JLabel("Account")); fields.add(account);
-        fields.add(new JLabel("Algorithm")); fields.add(algorithm);
-        fields.add(new JLabel("Digits (6–8)")); fields.add(digits);
-        fields.add(new JLabel("Period (seconds, 1–4294967295)")); fields.add(period);
+        fields.add(SwingUsability.label("Issuer", issuer)); fields.add(issuer);
+        fields.add(SwingUsability.label("Account", account)); fields.add(account);
+        fields.add(SwingUsability.label("Algorithm", algorithm)); fields.add(algorithm);
+        fields.add(SwingUsability.label("Digits (6–8)", digits)); fields.add(digits);
+        fields.add(SwingUsability.label("Period (seconds, 1–4294967295)", period)); fields.add(period);
         if (!create) { fields.add(replace); fields.add(new JLabel(" ")); }
-        fields.add(new JLabel("New Base32 secret")); fields.add(secret);
-        add(fields, BorderLayout.CENTER);
+        fields.add(SwingUsability.label("New Base32 secret", secret)); fields.add(secret);
+        add(new JScrollPane(fields), BorderLayout.CENTER);
         secret.setEnabled(create);
         replace.addActionListener(event -> {
             if (!replace.isSelected()) { secret.setText(""); }
@@ -73,8 +73,12 @@ public final class TokenEditorPanel extends JPanel {
             busy(true, "Saving…");
             submit.accept(draft);
         });
+        save.setMnemonic('S'); cancel.setMnemonic('C');
+        secret.getAccessibleContext().setAccessibleName("Replacement TOTP secret");
         cancel.addActionListener(event -> { if (!busy && !retired) { retire(); abandon.run(); } });
     }
+
+    void installDialog(JRootPane root) { SwingUsability.dialog(root, save, () -> { if (canCancel()) { cancel.doClick(); } }); }
 
     TokenDraft draft() {
         Edt.require();

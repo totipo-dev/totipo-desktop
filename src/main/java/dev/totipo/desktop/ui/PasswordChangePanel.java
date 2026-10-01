@@ -28,11 +28,13 @@ public final class PasswordChangePanel extends JPanel {
         setLayout(new BorderLayout(8, 8));
         setBorder(javax.swing.BorderFactory.createEmptyBorder(12, 12, 12, 12));
         JPanel fields = new JPanel(new GridLayout(0, 1, 0, 8));
-        fields.add(new JLabel("Current password")); fields.add(current);
-        fields.add(new JLabel("New password")); fields.add(next);
-        fields.add(new JLabel("Confirm new password")); fields.add(confirmation);
+        fields.add(SwingUsability.label("Current password", current)); fields.add(current);
+        fields.add(SwingUsability.label("New password", next)); fields.add(next);
+        fields.add(SwingUsability.label("Confirm new password", confirmation)); fields.add(confirmation);
         JPanel buttons = new JPanel(); buttons.add(change); buttons.add(cancel);
         add(fields, BorderLayout.NORTH); add(message, BorderLayout.CENTER); add(buttons, BorderLayout.SOUTH);
+        change.setMnemonic('H'); cancel.setMnemonic('C');
+        message.getAccessibleContext().setAccessibleName("Password change status");
         change.addActionListener(event -> {
             if (retired || !change.isEnabled()) { return; }
             PasswordChangeSubmission submission = null;
@@ -71,6 +73,8 @@ public final class PasswordChangePanel extends JPanel {
             }
         });
     }
+
+    void installDialog(javax.swing.JRootPane root) { SwingUsability.dialog(root, change, this::cancel); }
 
     private void clearFields() {
         try { current.setText(""); }

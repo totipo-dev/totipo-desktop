@@ -13,12 +13,13 @@ final class TokenEditDialog extends JDialog {
         Edt.require();
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         setContentPane(panel);
+        panel.installDialog(getRootPane());
         addWindowListener(new WindowAdapter() {
             @Override public void windowClosing(WindowEvent event) {
                 if (panel.canCancel()) { panel.cancel.doClick(); }
             }
         });
-        setSize(650, 700);
+        SwingUsability.fit(this, 650, 700);
         setLocationRelativeTo(owner);
     }
 }

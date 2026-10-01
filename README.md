@@ -1,11 +1,22 @@
 # Totipo Desktop
 
-A Java/Swing desktop application for Totipo. Current status: **M3a explicit vault-password change**, alongside merge/conflict resolution, token create,
+A Java/Swing desktop application for Totipo. Current status: **M3b desktop usability and accessibility**, alongside merge/conflict resolution, token create,
 ordinary update, and publication uncertainty. The application supports local
 vault create/open, observation and diagnostics, read-only logical-token/TOTP
 browsing, manual Base32 token creation, and ordinary update of an explicitly
 selected semantic alternative. Independent vault windows own their sessions and
 close them during window/application shutdown. Refresh requests local observation.
+
+Search filters logical tokens by token ID, issuer or account, including every
+complete conflict alternative, with result counts and distinct empty states.
+Ctrl/Cmd+F focuses Search, Escape in Search clears it, F5 refreshes, and Ctrl/Cmd+N
+opens Create Token when available. Normal list arrow/Page/Home/End navigation is
+preserved. Hiding a selected token clears its selection; clearing search does not
+restore it or select another token. Search is temporary and stays within the process.
+Forms have associated labels, accessible control names, guarded Escape cancellation
+and ordinary default buttons. Long details and merge content scroll; focus is not
+requested by state updates. These are concrete usability improvements, not a formal
+accessibility certification.
 
 Each vault window allows one write workflow at a time.
 **Change Password…** accepts current/new/confirmation passwords and shares that

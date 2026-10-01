@@ -510,3 +510,34 @@ reopen the form or show normal success/error UI. STALE/UNCERTAIN close remains
 idempotent. Application shutdown waits for existing controller completion and
 suppresses post-close password messages. Presentation cleanup failure cannot
 prevent queued session close or stop shutdown of other windows.
+
+
+## Presentation usability (M3b)
+
+The browser retains the latest authoritative VaultState, a temporary search-field
+query and ordinary presentation rows. Search never alters/copies protocol state or
+creates a second domain database. Matching is a literal Locale.ROOT case-insensitive
+substring of the full token-ID hex or issuer/account of any complete alternative.
+No other fields are searched. Empty query matches all logical tokens, including
+incomplete observations. Filtering preserves supplied ordering and one row per
+TokenId, with all conflict/unresolved detail intact and no winning alternative.
+
+New states retain the query and resolve surviving selection by full TokenId.
+A removed or filtered-out selection is cleared; clearing the filter never restores
+it or selects a replacement. Counts distinguish all logical tokens from matches;
+empty vault and no-match text are separate from observation status/diagnostics.
+Search is not persisted, logged or included in titles/diagnostics.
+
+Find, Refresh and Create use Swing action maps. Button and shortcut Refresh/Create
+share Actions and enabled state; MutationGate retains sole workflow ownership.
+Dialog Escape forwards existing guarded Cancel cleanup, and busy work cannot be
+interrupted. Ordinary form defaults are Save/Continue/Change; AdditionalConflict
+keeps Review Latest as default and uncertainty has no default. Original publication
+remains an explicit confirmed decision. There are no destructive shortcuts.
+
+Focus requests occur only after showing the vault or through user actions, never
+from state emissions. Standard list navigation remains intact. Accessible metadata
+must never contain entered passwords or secrets. Current visible TOTP label text
+remains accessible and is cleared with the existing code lifetime; static descriptions
+contain no codes. Labels identify inputs, conflict/unresolved evidence remains text,
+and bounded windows with scrollable content avoid user-controlled pack dimensions.

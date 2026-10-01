@@ -3,7 +3,6 @@ package dev.totipo.desktop.ui;
 import java.awt.Component;
 import java.awt.GridLayout;
 import java.util.Arrays;
-import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
@@ -17,10 +16,10 @@ final class PasswordPrompt {
         JPasswordField primary = new JPasswordField(24);
         JPasswordField confirmation = new JPasswordField(24);
         JPanel fields = new JPanel(new GridLayout(0, 1, 0, 8));
-        fields.add(new JLabel("Vault password"));
+        fields.add(SwingUsability.label("Vault password", primary));
         fields.add(primary);
         if (create) {
-            fields.add(new JLabel("Confirm password"));
+            fields.add(SwingUsability.label("Confirm password", confirmation));
             fields.add(confirmation);
         }
         try {

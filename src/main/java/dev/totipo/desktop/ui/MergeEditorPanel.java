@@ -37,6 +37,7 @@ public final class MergeEditorPanel extends JPanel {
     private transient Field<TotpAlgorithm> algorithm;
     private transient Field<Integer> digits;
     private transient Field<Duration> period;
+    private javax.swing.JRootPane dialogRoot;
     private boolean busy;
     private boolean retired;
 
@@ -52,6 +53,9 @@ public final class MergeEditorPanel extends JPanel {
         footer.add(message, BorderLayout.CENTER); footer.add(buttons, BorderLayout.SOUTH); add(footer, BorderLayout.SOUTH);
         next.addActionListener(event -> resolve());
         back.addActionListener(event -> { secret.setText(""); inputStep(); });
+        save.setMnemonic('S'); cancel.setMnemonic('C'); next.setMnemonic('N'); back.setMnemonic('B');
+        message.getAccessibleContext().setAccessibleName("Merge status");
+        secret.getAccessibleContext().setAccessibleName("Replacement TOTP secret");
         cancel.addActionListener(event -> { if (canCancel()) { retire(); abandon.run(); } });
         save.addActionListener(event -> save());
         secret.getDocument().addDocumentListener(listener(this::validateForm));
@@ -103,7 +107,7 @@ public final class MergeEditorPanel extends JPanel {
         }
         secretChoice.addItem("Replace with new secret");
         secretChoice.setSelectedIndex(secretGroups.size() == 1 ? 0 : -1);
-        body.add(new JLabel("Secret")); body.add(secretChoice); body.add(new JLabel("New Base32 secret")); body.add(secret);
+        body.add(SwingUsability.label("Secret", secretChoice)); body.add(secretChoice); body.add(SwingUsability.label("New Base32 secret", secret)); body.add(secret);
         secret.setEnabled(false);
         secretChoice.addActionListener(event -> {
             boolean replacement = secretChoice.getSelectedIndex() == secretGroups.size();
@@ -118,7 +122,9 @@ public final class MergeEditorPanel extends JPanel {
     private <T> Field<T> field(String label, CompetingField<T> competition, List<T> allowed,
                                Function<String, T> parse, Function<T, String> format) {
         Field<T> field = new Field<>(competition, allowed, parse, format);
-        body.add(new JLabel(label)); body.add(field.panel); return field;
+        body.add(SwingUsability.label(label, field.choice));
+        if (parse != null) { field.panel.add(SwingUsability.label("Custom " + label, field.custom), 1); }
+        body.add(field.panel); return field;
     }
     private final class Field<T> {
         final JPanel panel = new JPanel(new GridLayout(0, 1));
@@ -199,7 +205,8 @@ public final class MergeEditorPanel extends JPanel {
     public boolean canCancel() { return !busy && !retired; }
     public void cancel() { if (canCancel()) { cancel.doClick(); } }
     public void retire() { Edt.require(); retired = true; secret.setText(""); busy(true, " "); }
-    private void refresh() { body.revalidate(); body.repaint(); }
+    void installDialog(JRootPane root) { dialogRoot = root; SwingUsability.dialog(root, next, this::cancel); }
+    private void refresh() { if (dialogRoot != null) { dialogRoot.setDefaultButton(frozen == null ? next : save); } body.revalidate(); body.repaint(); }
     private static DocumentListener listener(Runnable changed) {
         return new DocumentListener() {
             public void insertUpdate(DocumentEvent event) { changed.run(); }
