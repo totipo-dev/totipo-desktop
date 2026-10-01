@@ -21,10 +21,11 @@ class VaultPanelTest {
             JLabel status = components.stream().filter(JLabel.class::isInstance).map(JLabel.class::cast)
                     .filter(label -> label.getText().startsWith("Waiting")).findFirst().orElseThrow();
             JProgressBar progress = first(components, JProgressBar.class);
-            JTextArea diagnostics = first(components, JTextArea.class);
+            JTextArea diagnostics = components.stream().filter(JTextArea.class::isInstance).map(JTextArea.class::cast)
+                    .filter(area -> area.getRows() == 8).findFirst().orElseThrow();
             JButton refresh = components.stream().filter(JButton.class::isInstance).map(JButton.class::cast)
                     .filter(button -> button.getText().equals("Refresh")).findFirst().orElseThrow();
-            // These fake states throw on every token/editing/TOTP API call.
+            // These fake states have no tokens and reject editing/TOTP API calls.
             panel.render(state(new ObservationProgress.Enumerating(42), "CODE_A", "CODE_A"));
             assertEquals("Observing local vault — discovered 42 objects", status.getText());
             assertTrue(progress.isIndeterminate());

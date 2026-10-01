@@ -4,6 +4,7 @@ import dev.totipo.ObservationProgress;
 import dev.totipo.VaultState;
 import java.awt.BorderLayout;
 import java.awt.GridLayout;
+import java.time.Clock;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -12,13 +13,14 @@ import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 
-/** Renders only observation evidence from the current immutable state. */
+/** Renders observation evidence and tokens from the same immutable state. */
 public final class VaultPanel extends JPanel {
     private static final long serialVersionUID = 1L;
     private final JLabel status = new JLabel("Waiting for local observation…");
     private final JProgressBar progress = new JProgressBar(0, 1000);
     private final JTextArea diagnostics = new JTextArea(8, 48);
     private final JButton refresh = new JButton("Refresh");
+    private final TokenBrowserPanel browser = new TokenBrowserPanel(Clock.systemUTC());
 
     public VaultPanel() {
         Edt.require();
@@ -28,11 +30,14 @@ public final class VaultPanel extends JPanel {
         heading.add(new JLabel("Vault — local observation"));
         heading.add(status);
         heading.add(progress);
-        heading.add(new JLabel("Local observation diagnostics"));
+        heading.add(refresh);
         add(heading, BorderLayout.NORTH);
         diagnostics.setEditable(false);
-        add(new JScrollPane(diagnostics), BorderLayout.CENTER);
-        add(refresh, BorderLayout.SOUTH);
+        add(browser, BorderLayout.CENTER);
+        JPanel lower = new JPanel(new BorderLayout());
+        lower.add(new JLabel("Local observation diagnostics"), BorderLayout.NORTH);
+        lower.add(new JScrollPane(diagnostics), BorderLayout.CENTER);
+        add(lower, BorderLayout.SOUTH);
         progress.setIndeterminate(true);
     }
 
@@ -67,10 +72,12 @@ public final class VaultPanel extends JPanel {
         }
         diagnostics.setText(codes.toString());
         diagnostics.setCaretPosition(0);
+        browser.render(state);
     }
 
     public void closing() {
         Edt.require();
+        browser.closing();
         refresh.setEnabled(false);
         status.setText("Closing…");
         progress.setIndeterminate(false);

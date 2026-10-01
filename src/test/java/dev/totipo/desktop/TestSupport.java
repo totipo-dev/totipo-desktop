@@ -44,6 +44,7 @@ public final class TestSupport {
         return (VaultState) Proxy.newProxyInstance(VaultState.class.getClassLoader(),
                 new Class<?>[] {VaultState.class}, (proxy, method, arguments) -> switch (method.getName()) {
                     case "observation" -> progress;
+                    case "tokens" -> List.of();
                     case "diagnostics" -> diagnostics;
                     default -> throw new AssertionError("Unexpected state API: " + method.getName());
                 });
