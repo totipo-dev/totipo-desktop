@@ -1,7 +1,13 @@
 # Totipo Desktop
 
-A Java/Swing desktop application for Totipo. Current status: **M0 bootstrap**,
-not yet a functional vault client. Open Vault and Create Vault are disabled.
+A Java/Swing desktop application for Totipo. Current status: **M1a lifecycle and
+local observation**. The application can create/open local NIO vaults in existing
+directories, show local observation progress and diagnostic codes, and manually
+request another local observation with Refresh. Independent vault windows own
+their sessions and close them during window/application shutdown.
+
+Token display/editing and TOTP display are not implemented yet. A finished local
+observation is not a claim of synchronization, freshness or complete history.
 Protocol target: Totipo Vault Format **v1/r17**, through pinned Totipo Java.
 
 Clone with the exact dependency checkout:
@@ -41,4 +47,5 @@ Review all generated inputs; it never updates the Totipo Java pin.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for threading, state, and ownership policy,
 [TOTIPO_JAVA_PIN.md](TOTIPO_JAVA_PIN.md) for the dependency boundary and pin, and
-[the M0 report](review/M0_BOOTSTRAP_REPORT.md) for validation evidence.
+[the M0 report](review/M0_BOOTSTRAP_REPORT.md) for bootstrap evidence, and
+[the M1a report](review/M1A_LIFECYCLE_OBSERVATION_REPORT.md) for lifecycle validation.
