@@ -1,0 +1,3 @@
+[submodule "vendor/totipo-java"]
+	path = vendor/totipo-java
+	url = https://github.com/totipo-dev/totipo-java
