@@ -61,23 +61,21 @@ Stopping releases the retry capability and leaves a persistent warning for that
 open session: publication may already have occurred. Starting Create again makes
 a distinct token, not a retry. Acknowledged publication and finished local
 observation do not mean synchronization, freshness or complete history.
-Protocol target: Totipo Vault Format **v1/r17**, through pinned Totipo Java.
+Protocol target: Totipo Vault Format **v1/r17**, through released Totipo Java 0.1.0.
 Local configured-store acknowledgement is not remote synchronization or rollback
 protection. Provider qualification remains limited; local NIO integration tests do
 not establish guarantees for arbitrary filesystems or remote providers.
 
-Clone with the exact dependency checkout:
+Clone normally:
 
 ```sh
-git clone --recurse-submodules https://github.com/totipo-dev/totipo-desktop.git
+git clone https://github.com/totipo-org/totipo-desktop.git
 cd totipo-desktop
 ```
 
-For an existing clone:
-
-```sh
-git submodule update --init --recursive
-```
+Gradle resolves `org.totipo:totipo-storage-nio:0.1.0` and its transitive
+`org.totipo:totipo-core:0.1.0` from Maven Central. Internet access is needed
+for first resolution unless dependencies are already cached or Nix-provided.
 
 Build with **JDK 25** in `JAVA_HOME` (toolchain auto-download is disabled).
 Production classes target **Java 17**; tests use JDK 25. The repository wrapper
@@ -95,14 +93,14 @@ Offline builds require dependencies and the wrapper distribution to be cached
 by a prior online build.
 
 The existing `nix develop` shell supplies the full `jdk25` for Swing, not a
-headless JDK. To deliberately refresh reproducibility inputs, run
-`./bootstrap-m0.sh` in that shell (or with JDK 25 and Gradle available).
-It refreshes `flake.lock` when Nix is available, generates and verifies the
-exact wrapper, writes locks and SHA-256 verification metadata, and builds.
-Review all generated inputs; it never updates the Totipo Java pin.
+headless JDK. `./bootstrap-m0.sh` generates/verifies the exact wrapper and
+builds using existing locks and strict verification. To deliberately regenerate
+locks and SHA-256 verification metadata, use `./bootstrap-m0.sh --refresh-dependencies`
+with JDK 25 and Gradle available, then review all generated inputs. It does not
+update the Nix flake lock or Java dependency version.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for threading, state, and ownership policy,
-[TOTIPO_JAVA_PIN.md](TOTIPO_JAVA_PIN.md) for the dependency boundary and pin, and
+[TOTIPO_JAVA_DEPENDENCY.md](TOTIPO_JAVA_DEPENDENCY.md) for the released dependency boundary, and
 [the M0 report](review/M0_BOOTSTRAP_REPORT.md) for bootstrap evidence, and
 [the M1a report](review/M1A_LIFECYCLE_OBSERVATION_REPORT.md) for lifecycle validation.
 See also the [M1b report](review/M1B_READ_ONLY_TOKEN_REPORT.md) and
@@ -140,12 +138,12 @@ unreleased development state. `./gradlew validateVersion -PreleaseBuild=true`
 intentionally fails until an actual candidate version replaces the sentinel.
 Missing, empty, whitespace-bearing, or unsafe filename versions fail configuration.
 
-### Nix package foundation — operator-validated build
+### Nix package — dependency cache awaits operator regeneration
 
 The flake exposes a Linux-only package using the full pinned `jdk25`, Gradle 9
 and the same `installDist`. Existing dev-shell/jailed-agent inputs remain intact.
-Use a recent Nix supporting `inputs.self.submodules`; initialize the pinned
-submodule first:
+The source is an ordinary repository checkout. Java arrives as released Maven
+artifacts through the dependency cache. After regenerating that cache:
 
 ```sh
 nix flake check
@@ -156,37 +154,44 @@ nix run .
 ```
 
 The wrapper fixes `JAVA_HOME` to the managed full JDK and supplies launcher shell
-utilities. Runtime use requires neither Gradle, checkout/vendor sources nor shell
+utilities. Runtime use requires neither Gradle, checkout sources nor shell
 Java configuration. The desktop entry is Totipo / Utility / Terminal=false, with
 no handlers, autostart or placeholder icon. Vaults remain user-selected paths;
 installation directories are never vault storage.
 
-**M4a validation status:** The operator generated `package-deps.json` through the
-official workflow and reports successful Nix execution after fixing the missing
-SPEC_PIN source-filter entry, UTF-8 filename locale and desktop-category assertion.
-The completion pass independently inspected configuration/cache data and reran
-non-Nix checks; it did not invoke Nix by explicit instruction. Exact forced-rebuild
-comparison and native qualification remain unrecorded/UNQUALIFIED. See the M4a
-report for evidence ownership and the recorded output reference. No dependency
-hashes were hand-edited.
+**D1 status:** Nix dependency cache regeneration required by operator.
+`package-deps.json` is retained unchanged as stale pre-D1 evidence. The package
+fails closed outside cache regeneration until the cache contains the locked
+released Totipo Maven artifacts. No Nix command was run for D1 and the migrated
+Nix package is not yet validated. Prior operator build evidence remains in the
+M4a report; it does not validate this migration. Native qualification remains
+UNQUALIFIED. Do not hand-edit dependency hashes.
 
 From the repository root, generate/refresh using the official update script:
 
-```sh
-update_script=$(nix build --no-link --print-out-paths .#packages.x86_64-linux.default.mitmCache.updateScript)
-"$update_script"
-nix build .
+```fish
+set update_script (
+    nix build \
+        --no-link \
+        --print-out-paths \
+        'path:.#packages.x86_64-linux.default.mitmCache.updateScript'
+)
+
+$update_script
+
+nix flake check path:.
+nix build path:.
+nix build --rebuild path:.
 ```
 
 Substitute `aarch64-linux` only when qualifying that system. For this uncommitted
-review (new files are deliberately unstaged), use `path:.` in place of `.` in
-both commands: Git-based flake sources omit untracked files. Do not update
-`flake.lock`, the submodule or Gradle verification hashes just to make the build
-pass. Review `package-deps.json`, then verify a sandboxed build with strict
-verification/locking and `nix build --rebuild .`; an ordinary second build only
-proves cache reuse. The update task also runs composite checks, so dependencies
-needed by vendor tests enter the cache. MITM transport does not waive Gradle's
-artifact hash verification.
+review, `path:.` includes uncommitted/untracked migration files that Git-based
+flake sources can omit. Do not update `flake.lock` or Gradle verification hashes
+just to make the build pass. Review `package-deps.json`: it should add the released
+Totipo artifacts, retain BC, and no longer need Java conformance-test dependencies.
+The update task runs desktop checks and distribution verification only.
+An ordinary second build proves cache reuse; the forced rebuild is separate.
+MITM transport does not waive Gradle's artifact hash verification.
 
 The derivation sets `LC_ALL=C.UTF-8` for dependency fetching and package tests.
 NIO filename encoding follows the native locale: `-Dfile.encoding=UTF-8` alone

@@ -9,7 +9,8 @@ A green Gradle build alone cannot pass this checklist.
 ## Source/repository
 
 - [ ] Clean worktree and reviewed release commit; no untracked packaging inputs.
-- [ ] Exact gitlink matches TOTIPO_JAVA_PIN.md; upstream pin reviewed; protocol v1/r17 confirmed.
+- [ ] Exact `org.totipo:totipo-storage-nio:0.1.0` locked; core is transitive `org.totipo:totipo-core:0.1.0`; protocol v1/r17 confirmed.
+- [ ] Gradle verification hashes and released provenance in TOTIPO_JAVA_DEPENDENCY.md reviewed.
 - [ ] VERSION contains the intended version and is **not `0.0.0-dev`**.
 - [ ] `./gradlew validateVersion -PreleaseBuild=true` passes; intended tag equals VERSION.
 - [ ] Dependency/verification/lock/cache changes reviewed; no unexpected dependencies.
@@ -19,19 +20,20 @@ A green Gradle build alone cannot pass this checklist.
 - [ ] `./gradlew clean test build -PreleaseBuild=true`.
 - [ ] `./gradlew --no-daemon --no-build-cache --rerun-tasks clean test`.
 - [ ] `./gradlew --offline --no-daemon --no-build-cache --rerun-tasks clean test`.
-- [ ] Strict dependency verification and locking preserved, including composite package checks.
+- [ ] Strict dependency verification and locking preserved; `verifyMavenBoundary` passes through `check` with no project/source substitution.
 - [ ] All desktop/core/storage-nio production classfiles verified as Java 17.
 - [ ] `./gradlew installDist distTar distZip verifyDistribution verifyDistributionArchives`.
 - [ ] Two clean builds compared (semantic contents and SHA-256); reproducibility differences resolved/documented.
-- [ ] Official `mitmCache.updateScript` generated a current reviewed package-deps.json; bootstrap marker absent.
+- [ ] Official `mitmCache.updateScript` regenerated a current reviewed package-deps.json containing released Totipo Maven artifacts.
 - [ ] `nix flake check` and `nix build .` pass on every claimed Nix architecture.
-- [ ] Nix Gradle/JDK versions reviewed; source filtering includes exact vendor source.
+- [ ] Nix Gradle/JDK versions reviewed; source filtering includes desktop/build material only.
+- [ ] Distribution JAR bytes match the exact resolved, verified Maven artifacts.
 - [ ] Nix package contents, wrapper, entry and runtime inspected; repeat build/rebuild evidence recorded honestly.
 
 ## Tests
 
 - [ ] All unit and real-NIO integration tests pass.
-- [ ] Composite `:totipo-java:check` passes for packaged source.
+- [ ] Compile/runtime Maven graphs contain exact external Totipo modules; no local fallback.
 - [ ] Explicit filesystemQualification passes on **every claimed filesystem/environment**, with cleanup confirmed.
 
 ## Native UI — blocking for every claimed platform/package

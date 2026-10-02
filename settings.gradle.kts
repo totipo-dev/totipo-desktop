@@ -4,4 +4,3 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "totipo-desktop"
-includeBuild("vendor/totipo-java")

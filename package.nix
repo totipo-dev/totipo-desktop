@@ -13,16 +13,26 @@ let
   rawVersion = builtins.readFile ./VERSION;
   version = if lib.hasSuffix "\r\n" rawVersion then lib.removeSuffix "\r\n" rawVersion else lib.removeSuffix "\n" rawVersion;
   cacheData = builtins.fromJSON (builtins.readFile ./package-deps.json);
-  cacheReady = builtins.length (builtins.attrNames (builtins.removeAttrs cacheData [ "!comment" "!version" ])) > 0;
-  # Explicit trees, including checked-out submodule contents, not a Git fileset.
+  centralCache = cacheData."https://repo.maven.apache.org/maven2/org" or { };
+  # The old source-build cache is stale until the operator regenerates it.
+  # Match the actual locked modules so a future dependency update also fails closed.
+  totipoLocks = builtins.filter (line: lib.hasPrefix "org.totipo:" line)
+    (lib.splitString "\n" (builtins.readFile ./gradle.lockfile));
+  cacheReady = builtins.length totipoLocks == 2 && builtins.all
+    (line:
+      let
+        coordinate = lib.splitString ":" (builtins.head (lib.splitString "=" line));
+        key = "totipo#${builtins.elemAt coordinate 1}/${builtins.elemAt coordinate 2}";
+        entry = centralCache.${key} or { };
+      in
+      entry ? jar && (entry ? module || entry ? pom)
+    )
+    totipoLocks;
+  # Only desktop sources, build inputs and packaged license notices.
   trees = [
     "src"
     "gradle"
     "packaging/licenses"
-    "vendor/totipo-java/gradle"
-    "vendor/totipo-java/core/src"
-    "vendor/totipo-java/storage-nio/src"
-    "vendor/totipo-java/SPEC_PIN.md"
   ];
   files = [
     "build.gradle.kts"
@@ -33,16 +43,6 @@ let
     "VERSION"
     "LICENSE"
     "THIRD_PARTY.md"
-    "packaging/strict-locking.gradle"
-    "vendor/totipo-java/build.gradle.kts"
-    "vendor/totipo-java/settings.gradle.kts"
-    "vendor/totipo-java/gradle.properties"
-    "vendor/totipo-java/settings-gradle.lockfile"
-    "vendor/totipo-java/LICENSE"
-    "vendor/totipo-java/core/build.gradle.kts"
-    "vendor/totipo-java/core/gradle.lockfile"
-    "vendor/totipo-java/storage-nio/build.gradle.kts"
-    "vendor/totipo-java/storage-nio/gradle.lockfile"
   ];
 in
 assert builtins.match "[A-Za-z0-9][A-Za-z0-9._+-]*" version != null;
@@ -76,20 +76,15 @@ stdenv.mkDerivation (finalAttrs: {
   gradleFlags = [
     "--no-configuration-cache"
     "--dependency-verification=strict"
-    "--init-script"
-    "packaging/strict-locking.gradle"
   ];
   gradleBuildTask = "installDist verifyDistributionArchives";
   doCheck = true;
-  gradleCheckTask = "check :totipo-java:check";
-  # Fetch exactly the tasks the package will execute, including the composite tests.
-  gradleUpdateTask = "installDist verifyDistributionArchives check :totipo-java:check";
+  gradleCheckTask = "check";
+  # Fetch exactly the tasks the package will execute, including desktop tests.
+  gradleUpdateTask = "installDist verifyDistributionArchives check";
   preBuild = ''
-    test -f vendor/totipo-java/core/src/main/java/dev/totipo/VaultState.java
-    test -f vendor/totipo-java/storage-nio/src/main/java/dev/totipo/storage/nio/NioTotipo.java
-    test -f vendor/totipo-java/core/src/test/resources/totipo-spec/v1-pre-rc/spec/totipo-vault-format-v1.md
     if [ -z "''${IN_GRADLE_UPDATE_DEPS:-}" ] && [ "${if cacheReady then "yes" else "no"}" != yes ]; then
-      echo 'package-deps.json is ungenerated; run mitmCache.updateScript as documented in README.md' >&2
+      echo 'package-deps.json is stale or ungenerated; run mitmCache.updateScript as documented in README.md' >&2
       exit 1
     fi
   '';
@@ -122,6 +117,10 @@ stdenv.mkDerivation (finalAttrs: {
     grep -F -- '${jdk}' "$out/bin/totipo-desktop"
     grep -F -- '-XX:+DisableAttachMechanism' "$out/lib/totipo-desktop/bin/totipo-desktop-unwrapped"
     test "$(find "$out/lib/totipo-desktop/lib" -type f -name '*.jar' | wc -l)" -eq 4
+    test -f "$out/lib/totipo-desktop/lib/totipo-desktop-${version}.jar"
+    test -f "$out/lib/totipo-desktop/lib/totipo-storage-nio-0.1.0.jar"
+    test -f "$out/lib/totipo-desktop/lib/totipo-core-0.1.0.jar"
+    test -f "$out/lib/totipo-desktop/lib/bcprov-jdk18on-1.86.jar"
     for jar in build/install/totipo-desktop/lib/*.jar; do
       cmp "$jar" "$out/lib/totipo-desktop/lib/$(basename "$jar")"
     done
@@ -133,12 +132,13 @@ stdenv.mkDerivation (finalAttrs: {
     grep -x 'Terminal=false' "$desktop"
     test -f "$out/share/doc/totipo-desktop/LICENSE"
     test -f "$out/share/doc/totipo-desktop/licenses/BOUNCY_CASTLE_LICENSE.html"
+    test -f "$out/share/doc/totipo-desktop/licenses/TOTIPO_JAVA_LICENSE"
     test -z "$(find "$out" \( -name '.gradle' -o -name '.git' -o -name '*.java' -o -iname '*junit*.jar' -o -iname '*test*.jar' \) -print -quit)"
     runHook postInstallCheck
   '';
   meta = {
     description = "Swing desktop application for password-protected Totipo TOTP vaults";
-    homepage = "https://github.com/totipo-dev/totipo-desktop";
+    homepage = "https://github.com/totipo-org/totipo-desktop";
     license = lib.licenses.asl20;
     mainProgram = "totipo-desktop";
     platforms = lib.platforms.linux;

@@ -7,9 +7,12 @@ GRADLE_VERSION="9.8.0"
 GRADLE_DIST_SHA256="bafd5ce9cfaea0fbccfdc8439a1ac42fbd4cd9c89dc9a988228d8a2639a58e6c"
 GRADLE_WRAPPER_JAR_SHA256="238e777fcddd7e34f9708186085def2abd6e08e658505b38718d79d74c21abd5"
 
-if command -v nix >/dev/null 2>&1; then
-    nix flake update
-fi
+refresh_dependencies=false
+case "${1:-}" in
+    "") ;;
+    --refresh-dependencies) refresh_dependencies=true ;;
+    *) echo "Usage: $0 [--refresh-dependencies]" >&2; exit 1 ;;
+esac
 
 if ! command -v gradle >/dev/null 2>&1; then
     cat >&2 <<'MSG'
@@ -56,11 +59,11 @@ if [[ "${actual_wrapper_sha}" != "${GRADLE_WRAPPER_JAR_SHA256}" ]]; then
     exit 1
 fi
 
-echo "Writing Gradle dependency locks and SHA-256 verification metadata..."
-# Metadata generation resolves included-build configurations too. Keep it and
-# compilation separate from --write-locks to preserve the vendor lockfiles.
-./gradlew dependencies --write-locks
-./gradlew build --write-verification-metadata sha256
+if [[ "$refresh_dependencies" == true ]]; then
+    echo "Writing Gradle dependency locks and SHA-256 verification metadata..."
+    ./gradlew dependencies --write-locks --write-verification-metadata sha256
+    ./gradlew build --write-verification-metadata sha256
+fi
 
 echo "Running initial build..."
 ./gradlew build
@@ -70,7 +73,6 @@ cat <<'MSG'
 M0 bootstrap complete.
 
 Review the generated reproducibility inputs:
-  flake.lock
   gradlew
   gradlew.bat
   gradle/wrapper/gradle-wrapper.jar
@@ -79,8 +81,7 @@ Review the generated reproducibility inputs:
   settings-gradle.lockfile
   gradle/verification-metadata.xml
 
-The totipo-java submodule is never updated by this script.
-
-The verification metadata is bootstrapped from the artifacts downloaded on
-this machine. Review it before treating it as a security boundary.
+Ordinary bootstrap preserves dependency locks and verification metadata.
+With --refresh-dependencies, metadata is generated from downloaded artifacts;
+review it before treating it as a security boundary.
 MSG

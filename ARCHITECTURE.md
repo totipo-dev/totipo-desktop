@@ -4,10 +4,15 @@ M3a adds explicit vault-password change with session retirement on STALE/UNCERTA
 M2b added explicit field-oriented merge and frozen-resolution decisions to M2a
 manual token create/update and explicit publication retry/abandonment, building on
 M1a session/window lifecycle, observation/diagnostics and refresh, and M1b
-logical-token/TOTP browsing. The single-project
-Swing bootstrap and pinned composite dependency from M0 remain intact. Production
-code consumes only `dev.totipo.*` and `dev.totipo.storage.nio.NioTotipo`, never the
-storage SPI or implementation internals. See [the dependency pin](TOTIPO_JAVA_PIN.md).
+logical-token/TOTP browsing. The single-project Swing application consumes
+released Maven modules: desktop -> `org.totipo:totipo-storage-nio:0.1.0` ->
+`org.totipo:totipo-core:0.1.0`. Desktop does not build Java core/storage from
+source. `org.totipo.storage.nio.NioTotipo` remains the filesystem entry point;
+`VaultSession`, `VaultState` and other `org.totipo` application APIs remain the
+core boundary. Desktop never consumes storage SPI or implementation internals.
+Java conformance belongs to the Java release, not the desktop build. Desktop
+packages use `org.totipo.desktop`; qualification uses `org.totipo.qualification`.
+See [the released dependency](TOTIPO_JAVA_DEPENDENCY.md).
 
 ## Ownership
 

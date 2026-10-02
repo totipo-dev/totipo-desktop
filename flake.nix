@@ -2,8 +2,6 @@
   description = "Development environment for totipo-desktop";
 
   inputs = {
-    # Include the pinned checked-out composite build in ordinary `nix build .`.
-    self.submodules = true;
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     llm-agents.url = "github:numtide/llm-agents.nix";

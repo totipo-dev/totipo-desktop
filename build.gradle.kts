@@ -1,10 +1,12 @@
 import java.io.DataInputStream
 import java.security.MessageDigest
 import java.util.zip.ZipFile
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 
 plugins { application }
 
-group = "dev.totipo"
+group = "org.totipo"
 description = "Totipo Swing desktop shell"
 
 // No terminator or one conventional newline; no other whitespace is accepted.
@@ -25,7 +27,7 @@ tasks.register("validateVersion") {
 }
 
 java { toolchain.languageVersion.set(JavaLanguageVersion.of(25)) }
-application { mainClass.set("dev.totipo.desktop.TotipoDesktop") }
+application { mainClass.set("org.totipo.desktop.TotipoDesktop") }
 
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
@@ -37,8 +39,9 @@ tasks.withType<Test>().configureEach {
     systemProperty("java.awt.headless", "true")
 }
 
+val totipoJavaVersion = "0.1.0"
 dependencies {
-    implementation("dev.totipo:storage-nio")
+    implementation("org.totipo:totipo-storage-nio:$totipoJavaVersion")
     testImplementation(platform("org.junit:junit-bom:6.1.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -48,6 +51,65 @@ dependencyLocking {
     lockAllConfigurations()
     lockMode.set(LockMode.STRICT)
 }
+
+val verifyMavenBoundary = tasks.register("verifyMavenBoundary") {
+    group = "verification"
+    description = "Require the exact external Totipo Maven dependency boundary"
+    val expectedVersion = totipoJavaVersion
+    val graphs = listOf(configurations.compileClasspath, configurations.runtimeClasspath).map { configuration ->
+        configuration.get().incoming.resolutionResult.rootComponent
+    }
+    inputs.files(configurations.compileClasspath, configurations.runtimeClasspath)
+    doLast {
+        graphs.forEachIndexed { index, graph ->
+            val root = graph.get()
+            val visited = mutableSetOf<org.gradle.api.artifacts.result.ResolvedComponentResult>()
+            fun visit(component: org.gradle.api.artifacts.result.ResolvedComponentResult) {
+                if (!visited.add(component)) return
+                component.dependencies.forEach { dependency ->
+                    check(dependency is org.gradle.api.artifacts.result.ResolvedDependencyResult) {
+                        "Unresolved dependency: $dependency"
+                    }
+                    visit(dependency.selected)
+                }
+            }
+            visit(root)
+            val dependencies = visited.filter { it != root }
+            // This single-project application has no legitimate project dependency.
+            check(dependencies.none { it.id is ProjectComponentIdentifier }) { "Project/source dependency found" }
+            val modules = dependencies.map { component ->
+                check(component.id is ModuleComponentIdentifier) { "Non-Maven component: ${component.id}" }
+                component.id as ModuleComponentIdentifier
+            }
+            val obsoleteGroup = listOf("dev", "totipo").joinToString(".")
+            check(modules.none { it.group == obsoleteGroup || it.group.startsWith("$obsoleteGroup.") }) {
+                "Obsolete Totipo Maven namespace found"
+            }
+            val totipo = modules.filter { it.group == "org.totipo" || it.group.startsWith("org.totipo.") }
+            check(totipo.size == 2 && totipo.map { "${it.group}:${it.module}:${it.version}" }.toSet() == setOf(
+                "org.totipo:totipo-storage-nio:$expectedVersion", "org.totipo:totipo-core:$expectedVersion"
+            )) { "Unexpected or version-skewed Totipo modules: $totipo" }
+            val direct = root.dependencies.filterIsInstance<org.gradle.api.artifacts.result.ResolvedDependencyResult>()
+                .filter { !it.isConstraint }.map { it.selected.id }.filterIsInstance<ModuleComponentIdentifier>()
+                .filter { it.group == "org.totipo" }
+            check(direct.size == 1 && direct.single().module == "totipo-storage-nio") {
+                "Only storage-nio may be a direct Totipo dependency: $direct"
+            }
+            val storage = dependencies.single { (it.id as? ModuleComponentIdentifier)?.module == "totipo-storage-nio" }
+            check(storage.dependencies.filterIsInstance<org.gradle.api.artifacts.result.ResolvedDependencyResult>()
+                .any { !it.isConstraint && (it.selected.id as? ModuleComponentIdentifier)?.let { id ->
+                    id.group == "org.totipo" && id.module == "totipo-core" && id.version == expectedVersion
+                } == true }) { "storage-nio must expose core transitively" }
+            if (index == 1) {
+                check(modules.count { it.group == "org.bouncycastle" && it.module == "bcprov-jdk18on" && it.version == "1.86" } == 1) {
+                    "Expected BC 1.86 runtime dependency"
+                }
+            }
+        }
+        logger.lifecycle("Verified external Totipo Maven compile/runtime boundary")
+    }
+}
+tasks.check { dependsOn(verifyMavenBoundary) }
 
 val mainClasses = sourceSets.main.map { it.output.classesDirs }
 val verifyJava17Bytecode = tasks.register("verifyJava17Bytecode") {
@@ -104,15 +166,16 @@ val verifyDistribution = tasks.register("verifyDistribution") {
     val runtimeArtifacts = runtimeFiles.map { it.toList() }
     val applicationJar = desktopJar
     val hostPath = buildHostPath
+    val dependencyVersion = totipoJavaVersion
     doLast {
         val root = rootDirectory.get().asFile
         val expectedArtifacts = runtimeArtifacts.get() + applicationJar.get().asFile
         val expectedJars = expectedArtifacts.map { it.name }.toSet()
         val patterns = listOf(
             Regex("totipo-desktop-[A-Za-z0-9._+-]+\\.jar"),
-            Regex("totipo-storage-nio(?:-[A-Za-z0-9._+-]+)?\\.jar"),
-            Regex("totipo-core(?:-[A-Za-z0-9._+-]+)?\\.jar"),
-            Regex("bcprov-jdk18on-[0-9.]+\\.jar")
+            Regex("totipo-storage-nio-${Regex.escape(dependencyVersion)}\\.jar"),
+            Regex("totipo-core-${Regex.escape(dependencyVersion)}\\.jar"),
+            Regex("bcprov-jdk18on-1\\.86\\.jar")
         )
         check(expectedJars.size == 4 && patterns.all { p -> expectedJars.count { p.matches(it) } == 1 }) {
             "Unexpected runtime composition: $expectedJars"
@@ -133,6 +196,7 @@ val verifyDistribution = tasks.register("verifyDistribution") {
         listOf("bin/totipo-desktop", "bin/totipo-desktop.bat").forEach { name ->
             val script = root.resolve(name).readText()
             check("-XX:+DisableAttachMechanism" in script) { "Missing packaged hardening: $name" }
+            check("org.totipo.desktop.TotipoDesktop" in script) { "Wrong application main class: $name" }
             check(hostPath !in script && !Regex("/home/|/Users/|/nix/store/|[A-Za-z]:[\\\\/]Users[\\\\/]").containsMatchIn(script)) {
                 "Build-host path in $name"
             }
@@ -191,19 +255,20 @@ tasks.register("verifyDistributionArchives") {
 }
 tasks.check { dependsOn(verifyDistribution) }
 
-// Separate executable harness, never wired into check/test or the distribution.
+// Compile the separate harness in check; execution remains explicit and it is not distributed.
 val qualification = sourceSets.create("qualification")
 qualification.compileClasspath = sourceSets.main.get().compileClasspath
 qualification.runtimeClasspath = qualification.output + sourceSets.main.get().runtimeClasspath
 tasks.named<JavaCompile>(qualification.compileJavaTaskName) {
     options.annotationProcessorPath = configurations.annotationProcessor.get()
 }
+tasks.check { dependsOn(tasks.named(qualification.classesTaskName)) }
 val qualificationRoot = providers.gradleProperty("qualificationRoot")
 tasks.register<JavaExec>("filesystemQualification") {
     group = "verification"
     description = "Real-NIO qualification beneath an explicit -PqualificationRoot"
     classpath = qualification.runtimeClasspath
-    mainClass.set("dev.totipo.qualification.FilesystemQualification")
+    mainClass.set("org.totipo.qualification.FilesystemQualification")
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
     val root = qualificationRoot
     argumentProviders.add(CommandLineArgumentProvider {

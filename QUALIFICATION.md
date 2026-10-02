@@ -6,6 +6,13 @@ is made. PASS below applies only to the named check and exact tested environment
 Build success, headless component tests and source inspection are not native GUI
 or clipboard qualification.
 
+The previously recorded filesystem qualification used the old source-consumed
+Java implementation. Released Java 0.1.0 is intended to be semantically equivalent,
+but D1 compilation/testing does not constitute new filesystem qualification.
+Rerun the harness against a candidate package during later release qualification.
+Prior Nix build evidence below predates D1; the migrated package awaits operator
+dependency-cache regeneration and validation.
+
 | OS/distribution | Architecture | Desktop/window manager | Java runtime | Filesystem | Route | GUI smoke | Clipboard smoke | Filesystem qualification | Result/date | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Linux 6.18.53; isolated development environment, distribution not exposed (/etc/os-release absent) | amd64 | None available | Nix OpenJDK 25.0.4.1+1; java.vendor=N/A | ext4; POSIX=true | Explicit Gradle filesystem harness | UNQUALIFIED | UNQUALIFIED | PASS | Filesystem-only PASS, 2026-10-01T14:57:54Z | Create/reopen/token/update/conflict/merge/password rewrap/TOTP/root stability and cleanup passed; root path intentionally omitted |

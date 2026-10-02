@@ -17,7 +17,7 @@ desktop/window manager, date and each result. Do not use `gradlew run` as eviden
 ## Nix package
 
 - [ ] Generate/review the official MITM cache; build `nix build .` with checks enabled.
-- [ ] Inspect package source: pinned vendor core/storage source, Gradle locks/verification and corpus present; .git, build, .gradle, IDE/temp/review files absent.
+- [ ] Inspect package source: desktop sources and Gradle locks/verification present; Java implementation source, spec snapshots/corpus, .git, build, .gradle, IDE/temp/review files absent. Released Totipo JARs come from the reviewed Maven dependency cache.
 - [ ] Inspect `result/bin/totipo-desktop`: managed full JDK JAVA_HOME is fixed; utilities are supplied; no build-directory/classpath leakage.
 - [ ] Inspect four runtime JARs under lib/totipo-desktop/lib; no test JARs or mutable caches/configuration.
 - [ ] Inspect license material in share/doc/totipo-desktop and runtime legal notices.

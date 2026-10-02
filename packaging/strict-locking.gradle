@@ -1,7 +1,0 @@
-// Apply to every project, including the composite build, without editing vendor.
-gradle.beforeProject { project ->
-    project.dependencyLocking {
-        lockAllConfigurations()
-        lockMode = LockMode.STRICT
-    }
-}
