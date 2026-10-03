@@ -6,8 +6,8 @@ import java.nio.file.Path;
 public interface LauncherView {
     void actions(Runnable open, Runnable create, Runnable close);
     Path chooseDirectory(Path initialLocation, boolean create);
-    /** Returns caller-owned characters, or null on cancellation/mismatched confirmation. */
-    char[] password(Path directory, boolean create);
+    /** Open offers Submit/Exit/Change Vault; Create offers Submit/Cancel (including mismatch). */
+    PasswordPromptResult password(Path directory, boolean create, PasswordPromptContext context);
     /** Explicit creation decision; cancellation/closing must return false. */
     boolean confirmEmptyPassword();
     void busy(String status, boolean busy);

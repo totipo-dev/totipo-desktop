@@ -3,6 +3,8 @@ package org.totipo.desktop;
 import org.totipo.*;
 import org.totipo.desktop.ui.Edt;
 import org.totipo.desktop.ui.LauncherView;
+import org.totipo.desktop.ui.PasswordPromptResult;
+import org.totipo.desktop.ui.PasswordPromptContext;
 import org.totipo.desktop.ui.VaultView;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
@@ -120,10 +122,12 @@ public final class TestSupport {
         boolean choosingCreate;
         int disposals;
         Path passwordDirectory;
+        final List<PasswordPromptContext> passwordContexts = new ArrayList<>();
         boolean allowEmptyPassword;
         int emptyConfirmations;
         boolean busy;
         char[] password = {'p'};
+        PasswordPromptResult.Action passwordAction;
         Path directory = Path.of("existing-directory");
         @Override public void actions(Runnable open, Runnable create, Runnable close) {
             Edt.require(); this.open = open; this.create = create; this.close = close;
@@ -132,7 +136,13 @@ public final class TestSupport {
             Edt.require(); directories++; chooserLocation = initialLocation; choosingCreate = create;
             duringDirectory.run(); return directory;
         }
-        @Override public char[] password(Path directory, boolean create) { Edt.require(); passwordDirectory = directory; duringPassword.run(); return password; }
+        @Override public PasswordPromptResult password(Path directory, boolean create, PasswordPromptContext context) {
+            Edt.require(); passwordDirectory = directory; passwordContexts.add(context); duringPassword.run();
+            if (passwordAction != null) { return PasswordPromptResult.dismissed(passwordAction); }
+            return password == null ? PasswordPromptResult.dismissed(create
+                    ? PasswordPromptResult.Action.CANCEL : PasswordPromptResult.Action.EXIT)
+                    : PasswordPromptResult.submitted(password);
+        }
         @Override public boolean confirmEmptyPassword() {
             Edt.require(); assertTrue(busy); emptyConfirmations++;
             duringEmptyConfirmation.run(); return allowEmptyPassword;

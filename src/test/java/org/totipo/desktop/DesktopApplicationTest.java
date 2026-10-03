@@ -331,7 +331,7 @@ class DesktopApplicationTest {
         assertTrue(app.executorShutdown());
     }
 
-    @Test void cancelledDirectoryOrPasswordReenablesLauncher() throws Exception {
+    @Test void cancelledDirectoryOrCreatePasswordReenablesLauncher() throws Exception {
         for (boolean directory : new boolean[] {true, false}) {
             Access access = new Access();
             Launcher launcher = new Launcher();
@@ -339,9 +339,12 @@ class DesktopApplicationTest {
             else { launcher.password = null; }
             DesktopApplication app = onEdt(() -> new DesktopApplication(access, launcher, path -> new Window()));
             try {
-                edt(launcher.open);
+                edt(directory ? launcher.open : launcher.create);
                 await(launcher.ready);
                 edt(() -> assertFalse(launcher.busy));
+                if (!directory) {
+                    assertEquals(List.of(org.totipo.desktop.ui.PasswordPromptContext.EXPLICIT), launcher.passwordContexts);
+                }
                 assertEquals(0, access.opens.get());
             } finally {
                 edt(app::shutdown);

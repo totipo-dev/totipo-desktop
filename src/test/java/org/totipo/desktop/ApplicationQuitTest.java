@@ -19,11 +19,13 @@ class ApplicationQuitTest {
         void exit() { panel.menuBar().getMenu(0).getItem(0).doClick(0); }
     }
 
-    @Test void fileExitRunsApplicationCleanupExactlyOnce() throws Exception { quit(true); }
+    @Test void fileExitRunsApplicationCleanupExactlyOnce() throws Exception { quit(true, false); }
 
-    @Test void mainWindowCloseRunsSameQuitPathWithoutReturningToLauncher() throws Exception { quit(false); }
+    @Test void mainWindowCloseRunsSameQuitPathWithoutReturningToLauncher() throws Exception { quit(false, false); }
 
-    private void quit(boolean fileExit) throws Exception {
+    @Test void openPasswordExitRunsSameQuitPathAndClosesExistingSessionExactlyOnce() throws Exception { quit(false, true); }
+
+    private void quit(boolean fileExit, boolean passwordExit) throws Exception {
         CountDownLatch releaseClose = new CountDownLatch(1);
         Session session = new Session(releaseClose);
         Launcher launcher = new Launcher();
@@ -38,7 +40,8 @@ class ApplicationQuitTest {
             await(launcher.ready);
             int shownBeforeQuit = launcher.shown;
             edt(() -> {
-                if (fileExit) { window.exit(); } else { window.close.run(); }
+                if (passwordExit) { launcher.password = null; launcher.open.run(); }
+                else if (fileExit) { window.exit(); } else { window.close.run(); }
                 assertTrue(window.closing);
                 assertFalse(app.executorShutdown());
                 assertEquals(1, launcher.disposed.getCount());

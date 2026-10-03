@@ -9,6 +9,8 @@ import org.totipo.desktop.ui.Edt;
 import org.totipo.desktop.ui.LauncherFrame;
 import org.totipo.desktop.ui.LauncherPanel;
 import org.totipo.desktop.ui.LauncherView;
+import org.totipo.desktop.ui.PasswordPromptResult;
+import org.totipo.desktop.ui.PasswordPromptContext;
 import org.totipo.desktop.ui.VaultFrame;
 import org.totipo.desktop.ui.VaultView;
 import java.nio.file.Path;
@@ -91,7 +93,7 @@ public final class DesktopApplication {
                 if (shuttingDown) { finishOperation(); return; }
                 if (found) {
                     busy = false;
-                    prompt(false, path);
+                    prompt(false, path, PasswordPromptContext.REMEMBERED_STARTUP);
                 } else {
                     preferences.clearLastVault();
                     launcher.showWindow();
@@ -105,10 +107,10 @@ public final class DesktopApplication {
     }
 
     private void prompt(boolean create) {
-        prompt(create, null);
+        prompt(create, null, PasswordPromptContext.EXPLICIT);
     }
 
-    private void prompt(boolean create, Path remembered) {
+    private void prompt(boolean create, Path remembered, PasswordPromptContext context) {
         Edt.require();
         if (busy || shuttingDown) {
             return;
@@ -120,13 +122,25 @@ public final class DesktopApplication {
         char[] password = null;
         boolean handedOff = false;
         try {
-            Path directory = remembered == null ? launcher.chooseDirectory(chooserLocation, create) : remembered;
-            if (directory == null || shuttingDown) {
-                return;
-            }
-            password = launcher.password(directory.toAbsolutePath().normalize(), create);
-            if (password == null || shuttingDown) {
-                return;
+            Path directory = remembered;
+            while (true) {
+                if (directory == null) { directory = launcher.chooseDirectory(chooserLocation, create); }
+                if (directory == null || shuttingDown) { return; }
+                PasswordPromptResult decision = launcher.password(directory.toAbsolutePath().normalize(), create, context);
+                password = decision.password();
+                if (shuttingDown) { return; }
+                if (decision.action() == PasswordPromptResult.Action.EXIT) {
+                    shutdown();
+                    return;
+                }
+                if (decision.action() == PasswordPromptResult.Action.CHANGE_VAULT) {
+                    context = PasswordPromptContext.EXPLICIT;
+                    chooserLocation = directory;
+                    directory = null;
+                    continue;
+                }
+                if (decision.action() == PasswordPromptResult.Action.CANCEL) { return; }
+                break;
             }
             busy = false;
             char[] submittedPassword = password;

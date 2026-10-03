@@ -38,7 +38,9 @@ public final class LauncherFrame extends JFrame implements LauncherView {
         return chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION
                 ? chooser.getSelectedFile().toPath() : null;
     }
-    @Override public char[] password(Path directory, boolean create) { return PasswordPrompt.ask(this, directory, create); }
+    @Override public PasswordPromptResult password(Path directory, boolean create, PasswordPromptContext context) {
+        return PasswordPrompt.ask(this, directory, create, context);
+    }
     @Override public boolean confirmEmptyPassword() {
         Edt.require();
         Object[] options = {"Create with empty password", "Cancel"};
