@@ -17,7 +17,11 @@ public final class LauncherFrame extends JFrame implements LauncherView {
         Edt.require();
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         setContentPane(panel);
+        panel.installDefaultAction(getRootPane());
         pack();
+        SwingUsability.fit(this, getWidth(), getHeight());
+        setMinimumSize(new java.awt.Dimension(Math.min(panel.getMinimumSize().width, getWidth()),
+                Math.min(panel.getMinimumSize().height, getHeight())));
         setLocationRelativeTo(null);
     }
 
@@ -28,11 +32,9 @@ public final class LauncherFrame extends JFrame implements LauncherView {
             @Override public void windowClosing(WindowEvent event) { close.run(); }
         });
     }
-    @Override public Path chooseDirectory() {
+    @Override public Path chooseDirectory(Path initialLocation, boolean create) {
         Edt.require();
-        JFileChooser chooser = new JFileChooser();
-        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        chooser.setMultiSelectionEnabled(false);
+        JFileChooser chooser = new VaultDirectoryChooser(initialLocation, create);
         return chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION
                 ? chooser.getSelectedFile().toPath() : null;
     }

@@ -190,7 +190,8 @@ class DesktopApplicationTest {
                 assertEquals(1, session.closes.get());
                 assertEquals(1, session.refreshes.get());
                 assertEquals("totipo-session-1", session.closeThread);
-                assertEquals(1, launcher.disposed.getCount());
+                await(launcher.disposed);
+                assertTrue(app.executorShutdown());
             } finally {
                 edt(app::shutdown);
                 await(launcher.disposed);

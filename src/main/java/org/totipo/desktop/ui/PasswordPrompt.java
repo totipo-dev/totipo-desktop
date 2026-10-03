@@ -22,7 +22,7 @@ final class PasswordPrompt {
             Edt.require();
             path = new javax.swing.JTextField(directory.toAbsolutePath().normalize().toString(), 36);
             path.setEditable(false);
-            add(SwingUsability.label("Vault", path)); add(path);
+            add(SwingUsability.label(create ? "Create a vault in:" : "Enter the password for:", path)); add(path);
             add(SwingUsability.label("Password", primary)); add(primary);
             if (create) {
                 add(SwingUsability.label("Confirm password", confirmation)); add(confirmation);

@@ -34,6 +34,7 @@ public final class VaultPanel extends JPanel {
     private boolean conflictWarning;
     final JMenuItem changeVault = new JMenuItem("Change Vault…");
     final JMenuItem changePassword = new JMenuItem("Change Password…");
+    final JMenuItem exit = new JMenuItem("Exit");
     static final java.awt.Dimension MINIMUM_SIZE = new java.awt.Dimension(900, 600);
     private transient Runnable refreshCallback = () -> { };
     private transient Runnable createCallback = () -> { };
@@ -86,10 +87,15 @@ public final class VaultPanel extends JPanel {
     public JMenuBar menuBar() {
         Edt.require();
         JMenuBar bar = new JMenuBar();
+        JMenu file = new JMenu("File"); file.setMnemonic('F');
+        exit.setMnemonic('X'); file.add(exit); bar.add(file);
         JMenu vault = new JMenu("Vault"); vault.setMnemonic('V');
         changeVault.setMnemonic('V');
         vault.add(changeVault); vault.add(changePassword); bar.add(vault);
         return bar;
+    }
+    public void exitAction(Runnable action) {
+        Edt.require(); exit.addActionListener(event -> action.run());
     }
     public void changeVaultAction(Runnable action) {
         Edt.require(); changeVault.addActionListener(event -> action.run());

@@ -7,6 +7,8 @@ import org.totipo.TokenAlternative;
 
 /** Vault presentation boundary; all calls are on the EDT. */
 public interface VaultView {
+    /** Application quit is separate from controller/session retirement. */
+    default void quitAction(Runnable action) { }
     default void changeVaultAction(Runnable action) { }
     default void copyAction(TotpClipboard.Copy action) { }
     default void passwordAction(Runnable action) { }

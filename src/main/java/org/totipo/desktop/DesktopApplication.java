@@ -7,6 +7,7 @@ import org.totipo.OpenResult;
 import org.totipo.VaultSession;
 import org.totipo.desktop.ui.Edt;
 import org.totipo.desktop.ui.LauncherFrame;
+import org.totipo.desktop.ui.LauncherPanel;
 import org.totipo.desktop.ui.LauncherView;
 import org.totipo.desktop.ui.VaultFrame;
 import org.totipo.desktop.ui.VaultView;
@@ -34,6 +35,7 @@ public final class DesktopApplication {
     private int nextWindow;
     private final VaultPreferences preferences;
     private VaultWindowController replacing;
+    private Path chooserLocation;
 
     public DesktopApplication() {
         this(new NioVaultAccess(), new LauncherFrame(), VaultFrame::new, new TotpClipboard(),
@@ -74,6 +76,7 @@ public final class DesktopApplication {
             return;
         }
         Path path = remembered.get();
+        chooserLocation = path;
         busy = true;
         launcher.busy("Finding previous vault…", true);
         executor.execute(() -> {
@@ -117,7 +120,7 @@ public final class DesktopApplication {
         char[] password = null;
         boolean handedOff = false;
         try {
-            Path directory = remembered == null ? launcher.chooseDirectory() : remembered;
+            Path directory = remembered == null ? launcher.chooseDirectory(chooserLocation, create) : remembered;
             if (directory == null || shuttingDown) {
                 return;
             }
@@ -230,16 +233,19 @@ public final class DesktopApplication {
                 return;
             }
             controllers.add(controller);
+            view.quitAction(this::shutdown);
             VaultWindowController previous = replacing;
             view.changeVaultAction(() -> {
                 if (busy || shuttingDown) { return; }
                 replacing = controller;
+                chooserLocation = directory;
                 launcher.showWindow();
                 prompt(false);
             });
             try {
                 if (controller.start()) {
                     preferences.setLastVault(directory);
+                    chooserLocation = directory;
                     if (previous != null) { previous.close(); }
                 }
             } finally {
@@ -321,7 +327,7 @@ public final class DesktopApplication {
         Edt.require();
         busy = false;
         if (!shuttingDown) {
-            launcher.busy("Choose an existing vault directory.", false);
+            launcher.busy(LauncherPanel.READY_TEXT, false);
             if (controllers.isEmpty()) { launcher.showWindow(); }
             else { launcher.hideWindow(); }
         }

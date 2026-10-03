@@ -43,7 +43,15 @@ class VaultPanelTest {
     @Test void menuActionsAreReachableAndPrimaryActionsShareHorizontalRow() throws Exception {
         edt(() -> {
             VaultPanel panel = new VaultPanel();
-            var menu = panel.menuBar().getMenu(0);
+            var bar = panel.menuBar();
+            assertEquals(2, bar.getMenuCount());
+            var file = bar.getMenu(0);
+            assertEquals("File", file.getText()); assertNotEquals(0, file.getMnemonic());
+            assertEquals(1, file.getItemCount());
+            assertEquals("Exit", file.getItem(0).getText()); assertNotEquals(0, file.getItem(0).getMnemonic());
+            int[] exits = {0}; panel.exitAction(() -> exits[0]++); file.getItem(0).doClick(0);
+            assertEquals(1, exits[0]);
+            var menu = bar.getMenu(1);
             assertEquals("Vault", menu.getText()); assertNotEquals(0, menu.getMnemonic());
             assertEquals("Change Vault…", menu.getItem(0).getText());
             assertEquals("Change Password…", menu.getItem(1).getText());

@@ -125,6 +125,8 @@ class RememberedVaultTest {
                     launcher.password = cancelDirectory ? new char[] {'p'} : null; window.changeVault.run(); });
                 assertEquals(directory, store.path); assertEquals(1, store.writes);
                 assertEquals(0, session.closes.get()); assertEquals(1, window.disposed.getCount());
+                assertFalse(app.executorShutdown()); assertEquals(1, launcher.disposed.getCount());
+                assertEquals(directory, launcher.chooserLocation); assertFalse(launcher.choosingCreate);
             }
             edt(() -> {
                 launcher.ready = new CountDownLatch(1); launcher.password = new char[] {'p'};

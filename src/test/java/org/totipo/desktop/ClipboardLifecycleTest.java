@@ -39,11 +39,16 @@ class ClipboardLifecycleTest {
         try {
             edt(() -> app.begin(Path.of("a"), new char[0], false)); await(wa.shown);
             edt(() -> app.begin(Path.of("b"), new char[0], false)); await(wb.shown);
-            edt(() -> {
+            var current = onEdt(() -> {
                 assertEquals(TotpClipboard.COPIED, wa.copyNow());
                 assertEquals(TotpClipboard.COPIED, wb.copyNow());
-                var current = probe.payload();
-                wa.close.run();
+                var payload = probe.payload();
+                // Session retirement remains independent; user window-close now quits the application.
+                a.subscriber.onComplete();
+                return payload;
+            });
+            await(wa.disposed);
+            edt(() -> {
                 assertSame(current, probe.payload());
                 assertEquals(TotpClipboard.UNAVAILABLE, wa.copyNow());
                 assertEquals(2, probe.writes());

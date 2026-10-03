@@ -5,7 +5,7 @@ import java.nio.file.Path;
 /** Launcher presentation boundary; all calls are on the EDT. */
 public interface LauncherView {
     void actions(Runnable open, Runnable create, Runnable close);
-    Path chooseDirectory();
+    Path chooseDirectory(Path initialLocation, boolean create);
     /** Returns caller-owned characters, or null on cancellation/mismatched confirmation. */
     char[] password(Path directory, boolean create);
     /** Explicit creation decision; cancellation/closing must return false. */

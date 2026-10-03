@@ -116,6 +116,9 @@ public final class TestSupport {
         int shown;
         int hidden;
         int directories;
+        Path chooserLocation;
+        boolean choosingCreate;
+        int disposals;
         Path passwordDirectory;
         boolean allowEmptyPassword;
         int emptyConfirmations;
@@ -125,7 +128,10 @@ public final class TestSupport {
         @Override public void actions(Runnable open, Runnable create, Runnable close) {
             Edt.require(); this.open = open; this.create = create; this.close = close;
         }
-        @Override public Path chooseDirectory() { Edt.require(); directories++; duringDirectory.run(); return directory; }
+        @Override public Path chooseDirectory(Path initialLocation, boolean create) {
+            Edt.require(); directories++; chooserLocation = initialLocation; choosingCreate = create;
+            duringDirectory.run(); return directory;
+        }
         @Override public char[] password(Path directory, boolean create) { Edt.require(); passwordDirectory = directory; duringPassword.run(); return password; }
         @Override public boolean confirmEmptyPassword() {
             Edt.require(); assertTrue(busy); emptyConfirmations++;
@@ -140,7 +146,7 @@ public final class TestSupport {
         }
         @Override public void showWindow() { Edt.require(); shown++; }
         @Override public void hideWindow() { Edt.require(); hidden++; }
-        @Override public void dispose() { Edt.require(); disposed.countDown(); }
+        @Override public void dispose() { Edt.require(); disposals++; disposed.countDown(); }
     }
 
     static class Window implements VaultView {
@@ -149,12 +155,17 @@ public final class TestSupport {
         Runnable refresh;
         Runnable changeVault;
         Runnable close;
+        Runnable quit;
+        int disposals;
         boolean closing;
         boolean failShow;
         int failures;
         @Override public void actions(Runnable refresh, Runnable close) {
-            Edt.require(); this.refresh = refresh; this.close = close;
+            Edt.require(); this.refresh = refresh; this.close = () -> {
+                if (quit != null) { quit.run(); } else { close.run(); }
+            };
         }
+        @Override public void quitAction(Runnable action) { Edt.require(); quit = action; }
         @Override public void changeVaultAction(Runnable action) { Edt.require(); changeVault = action; }
         @Override public void render(VaultState state) { Edt.require(); rendered.add(state); }
         @Override public void closing() { Edt.require(); closing = true; }
@@ -163,6 +174,6 @@ public final class TestSupport {
             Edt.require();
             if (failShow) { throw new IllegalStateException("show failed"); }
         }
-        @Override public void dispose() { Edt.require(); disposed.countDown(); }
+        @Override public void dispose() { Edt.require(); disposals++; disposed.countDown(); }
     }
 }

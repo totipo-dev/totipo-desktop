@@ -15,6 +15,7 @@ public final class VaultFrame extends JFrame implements VaultView {
     private final VaultPanel panel = new VaultPanel();
     private javax.swing.JDialog editor;
     private PasswordChangeDialog passwordDialog;
+    private transient Runnable quit;
 
     public VaultFrame(Path directory) {
         super("Totipo — " + directory);
@@ -32,8 +33,13 @@ public final class VaultFrame extends JFrame implements VaultView {
         Edt.require();
         panel.onRefresh(refresh);
         addWindowListener(new WindowAdapter() {
-            @Override public void windowClosing(WindowEvent event) { close.run(); }
+            @Override public void windowClosing(WindowEvent event) {
+                if (quit != null) { quit.run(); } else { close.run(); }
+            }
         });
+    }
+    @Override public void quitAction(Runnable action) {
+        Edt.require(); quit = action; panel.exitAction(action);
     }
     @Override public void changeVaultAction(Runnable action) { panel.changeVaultAction(action); }
     @Override public void copyAction(TotpClipboard.Copy action) { panel.copyAction(action); }

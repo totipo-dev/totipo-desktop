@@ -9,6 +9,26 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LauncherPanelTest {
+    @Test void launcherHasClearActionsPaddingComfortableSizeAndDefaultOpenAction() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            LauncherPanel panel = new LauncherPanel();
+            assertEquals(3, panel.getComponentCount());
+            assertEquals(LauncherPanel.READY_TEXT, ((javax.swing.JLabel) panel.getComponent(0)).getText());
+            JButton open = (JButton) panel.getComponent(1);
+            JButton create = (JButton) panel.getComponent(2);
+            assertEquals("Open Existing Vault…", open.getText());
+            assertEquals("Create New Vault…", create.getText());
+            assertTrue(open.getMnemonic() != 0 && create.getMnemonic() != 0);
+            var root = new javax.swing.JRootPane(); root.setContentPane(panel); panel.installDefaultAction(root);
+            assertSame(open, root.getDefaultButton());
+            assertTrue(panel.getPreferredSize().width >= 500); assertTrue(panel.getPreferredSize().height >= 250);
+            assertTrue(panel.getMinimumSize().width >= 500); assertTrue(panel.getMinimumSize().height >= 250);
+            var padding = panel.getInsets();
+            assertTrue(padding.top >= 24 && padding.bottom >= 24 && padding.left >= 24 && padding.right >= 24);
+            assertTrue(open.getMargin().top >= 8 && create.getMargin().bottom >= 8);
+            assertTrue(((java.awt.GridLayout) panel.getLayout()).getVgap() >= 12);
+        });
+    }
     @Test void edtGuardRejectsBackgroundThread() {
         assertFalse(SwingUtilities.isEventDispatchThread());
         assertThrows(IllegalStateException.class, Edt::require);

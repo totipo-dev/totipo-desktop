@@ -10,7 +10,7 @@ class PasswordPromptTest {
             var fields = new PasswordPrompt.Fields(path, false);
             assertEquals(path.toString(), fields.path.getText());
             assertFalse(fields.path.isEditable()); assertTrue(fields.path.isFocusable());
-            assertEquals("Vault", fields.path.getAccessibleContext().getAccessibleName());
+            assertEquals("Enter the password for:", fields.path.getAccessibleContext().getAccessibleName());
             assertEquals("Password", fields.primary.getAccessibleContext().getAccessibleName());
             assertEquals(4, fields.getComponentCount());
             fields.primary.setText("private"); fields.clear(); assertEquals(0, fields.primary.getPassword().length);
