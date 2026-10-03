@@ -180,11 +180,9 @@ class UsabilityTest {
             VaultPanel vault = new VaultPanel();
             String[] diagnostics = new String[200]; java.util.Arrays.fill(diagnostics, "DIAGNOSTIC");
             vault.render(org.totipo.desktop.TestSupport.state(new ObservationProgress.Finished(200, true), diagnostics));
-            JTextArea diagnosticArea = all(vault).stream().filter(JTextArea.class::isInstance).map(JTextArea.class::cast)
-                    .filter(area -> "Local observation diagnostics".equals(area.getAccessibleContext().getAccessibleName()))
-                    .findFirst().orElseThrow();
-            assertEquals(200, diagnosticArea.getText().lines().count());
-            assertInstanceOf(JViewport.class, diagnosticArea.getParent()); vault.closing();
+            assertTrue(all(vault).stream().noneMatch(component -> component instanceof JTextArea area
+                    && "Local observation diagnostics".equals(area.getAccessibleContext().getAccessibleName())));
+            assertTrue(vault.notification.isVisible()); vault.closing();
         });
     }
     private static List<Component> all(Container parent) {
@@ -207,8 +205,8 @@ class UsabilityTest {
             assertNotNull(find(panel, JScrollPane.class));
             assertNotNull(find(panel, JList.class).getAccessibleContext().getAccessibleName());
             find(panel, JList.class).setSelectedIndex(0);
-            assertTrue(find(panel, JTextArea.class).getText().contains("CONFLICT"));
-            assertTrue(find(panel, JTextArea.class).getLineWrap());
+            assertTrue(find(find(panel, TokenBrowserPanel.class), JTextArea.class).getText().contains("CONFLICT"));
+            assertTrue(find(find(panel, TokenBrowserPanel.class), JTextArea.class).getLineWrap());
             panel.closing();
         });
     }

@@ -21,7 +21,10 @@ public final class VaultFrame extends JFrame implements VaultView {
         Edt.require();
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         setContentPane(panel);
-        SwingUsability.fit(this, 1100, 850);
+        setJMenuBar(panel.menuBar());
+        setMinimumSize(panel.getMinimumSize());
+        setPreferredSize(new java.awt.Dimension(1000, 700));
+        SwingUsability.fit(this, 1000, 700);
         setLocationByPlatform(true);
     }
 
@@ -32,6 +35,7 @@ public final class VaultFrame extends JFrame implements VaultView {
             @Override public void windowClosing(WindowEvent event) { close.run(); }
         });
     }
+    @Override public void changeVaultAction(Runnable action) { panel.changeVaultAction(action); }
     @Override public void copyAction(TotpClipboard.Copy action) { panel.copyAction(action); }
     @Override public void passwordAction(Runnable action) { panel.passwordAction(action); }
     @Override public void editPassword(PasswordChangePanel content) {
@@ -79,6 +83,7 @@ public final class VaultFrame extends JFrame implements VaultView {
     @Override public void clearUncertainty() { panel.clearUncertainty(); }
     @Override public void abandonedPublication(boolean abandoned) { panel.abandonedPublication(abandoned); }
     @Override public void writeMessage(String message) { panel.writeMessage(message); }
+    @Override public void writeWarning(String detail, String message) { panel.writeWarning(message); }
     @Override public void render(VaultState state) { panel.render(state); }
     @Override public void closing() { panel.closing(); }
     @Override public void failure() {

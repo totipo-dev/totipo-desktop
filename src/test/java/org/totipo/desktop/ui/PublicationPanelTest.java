@@ -19,9 +19,9 @@ class PublicationPanelTest {
                 AtomicInteger retries = new AtomicInteger(); AtomicInteger stops = new AtomicInteger();
                 panel.publicationUncertain(true, false, retries::incrementAndGet, stops::incrementAndGet);
                 String text = all(panel).stream().filter(JTextArea.class::isInstance).map(JTextArea.class::cast)
-                        .map(JTextArea::getText).filter(value -> value.contains("durable acknowledgement")).findFirst().orElseThrow();
-                assertTrue(text.contains("may already be present")); assertTrue(text.contains("exact same frozen operation"));
-                assertTrue(text.contains("does not re-read or rebase")); assertTrue(text.contains("two logical tokens"));
+                        .map(JTextArea::getText).filter(value -> value.contains("could not confirm")).findFirst().orElseThrow();
+                assertTrue(text.contains("may already be present")); assertTrue(text.contains("exact same change"));
+                assertTrue(text.contains("does not read newer token data or adjust the change")); assertTrue(text.contains("two tokens"));
                 assertFalse(text.contains("Save failed")); assertFalse(text.contains("Not saved"));
                 button(panel, "Retry exact publication").doClick(); assertEquals(1, retries.get());
                 button(panel, "Stop retrying").doClick(); assertEquals(1, stops.get());
@@ -30,8 +30,8 @@ class PublicationPanelTest {
                 panel.clearUncertainty(); panel.abandonedPublication(true);
                 panel.render(state(new ObservationProgress.Finished(0, false)));
                 panel.writeMessage("Token publication acknowledged.");
-                assertTrue(all(panel).stream().filter(JLabel.class::isInstance).map(JLabel.class::cast)
-                        .anyMatch(label -> label.getText().contains("unresolved persistence status")));
+                assertTrue(panel.notification.isVisible());
+                assertTrue(TokenBrowserTest.find(panel.notification, JTextArea.class).getText().contains("may already have been saved"));
             } finally { panel.closing(); }
         });
     }

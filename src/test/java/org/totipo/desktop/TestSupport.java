@@ -102,7 +102,7 @@ public final class TestSupport {
     }
 
     static final class Launcher implements LauncherView {
-        final CountDownLatch ready = new CountDownLatch(1);
+        CountDownLatch ready = new CountDownLatch(1);
         final CountDownLatch disposed = new CountDownLatch(1);
         final List<String> titles = new ArrayList<>();
         final List<String> messages = new ArrayList<>();
@@ -113,6 +113,10 @@ public final class TestSupport {
         Runnable duringDirectory = () -> { };
         Runnable duringPassword = () -> { };
         Runnable duringEmptyConfirmation = () -> { };
+        int shown;
+        int hidden;
+        int directories;
+        Path passwordDirectory;
         boolean allowEmptyPassword;
         int emptyConfirmations;
         boolean busy;
@@ -121,8 +125,8 @@ public final class TestSupport {
         @Override public void actions(Runnable open, Runnable create, Runnable close) {
             Edt.require(); this.open = open; this.create = create; this.close = close;
         }
-        @Override public Path chooseDirectory() { Edt.require(); duringDirectory.run(); return directory; }
-        @Override public char[] password(boolean create) { Edt.require(); duringPassword.run(); return password; }
+        @Override public Path chooseDirectory() { Edt.require(); directories++; duringDirectory.run(); return directory; }
+        @Override public char[] password(Path directory, boolean create) { Edt.require(); passwordDirectory = directory; duringPassword.run(); return password; }
         @Override public boolean confirmEmptyPassword() {
             Edt.require(); assertTrue(busy); emptyConfirmations++;
             duringEmptyConfirmation.run(); return allowEmptyPassword;
@@ -134,7 +138,8 @@ public final class TestSupport {
         @Override public void message(String title, String text) {
             Edt.require(); titles.add(title); messages.add(text); duringMessage.run();
         }
-        @Override public void showWindow() { Edt.require(); }
+        @Override public void showWindow() { Edt.require(); shown++; }
+        @Override public void hideWindow() { Edt.require(); hidden++; }
         @Override public void dispose() { Edt.require(); disposed.countDown(); }
     }
 
@@ -142,6 +147,7 @@ public final class TestSupport {
         final CountDownLatch disposed = new CountDownLatch(1);
         final List<VaultState> rendered = new ArrayList<>();
         Runnable refresh;
+        Runnable changeVault;
         Runnable close;
         boolean closing;
         boolean failShow;
@@ -149,6 +155,7 @@ public final class TestSupport {
         @Override public void actions(Runnable refresh, Runnable close) {
             Edt.require(); this.refresh = refresh; this.close = close;
         }
+        @Override public void changeVaultAction(Runnable action) { Edt.require(); changeVault = action; }
         @Override public void render(VaultState state) { Edt.require(); rendered.add(state); }
         @Override public void closing() { Edt.require(); closing = true; }
         @Override public void failure() { Edt.require(); failures++; }

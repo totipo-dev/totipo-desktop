@@ -7,6 +7,7 @@ import org.totipo.TokenAlternative;
 
 /** Vault presentation boundary; all calls are on the EDT. */
 public interface VaultView {
+    default void changeVaultAction(Runnable action) { }
     default void copyAction(TotpClipboard.Copy action) { }
     default void passwordAction(Runnable action) { }
     default void editPassword(PasswordChangePanel panel) { }
@@ -31,6 +32,8 @@ public interface VaultView {
     default void clearUncertainty() { }
     default void abandonedPublication(boolean abandoned) { }
     default void writeMessage(String message) { }
+    /** Classified operation warning; detail remains available to nonvisual views. */
+    default void writeWarning(String detail, String userMessage) { writeMessage(detail); }
     void actions(Runnable refresh, Runnable close);
     void render(VaultState state);
     void closing();

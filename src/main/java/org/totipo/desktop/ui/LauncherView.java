@@ -7,11 +7,12 @@ public interface LauncherView {
     void actions(Runnable open, Runnable create, Runnable close);
     Path chooseDirectory();
     /** Returns caller-owned characters, or null on cancellation/mismatched confirmation. */
-    char[] password(boolean create);
+    char[] password(Path directory, boolean create);
     /** Explicit creation decision; cancellation/closing must return false. */
     boolean confirmEmptyPassword();
     void busy(String status, boolean busy);
     void message(String title, String text);
     void showWindow();
+    default void hideWindow() { }
     void dispose();
 }

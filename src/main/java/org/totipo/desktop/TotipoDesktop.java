@@ -7,6 +7,9 @@ public final class TotipoDesktop {
     private TotipoDesktop() { }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new DesktopApplication().show());
+        SwingUtilities.invokeLater(() -> {
+            org.totipo.desktop.ui.ApplicationFonts.install();
+            new DesktopApplication().show();
+        });
     }
 }

@@ -57,7 +57,7 @@ final class VaultWindowController {
         subscriber = new StateSubscriber(this::render, () -> close(true), this::close);
     }
 
-    void start() {
+    boolean start() {
         Edt.require();
         try {
             view.actions(this::refresh, this::close);
@@ -75,6 +75,7 @@ final class VaultWindowController {
         } catch (RuntimeException unexpected) {
             close(true);
         }
+        return !closing;
     }
 
     private void render(VaultState state) {

@@ -23,7 +23,7 @@ class PasswordBrowserTest {
                 assertTrue(display.running()); display.tick();
                 assertTrue(button(vault, "Refresh").isEnabled());
                 assertFalse(button(vault, "Create Token").isEnabled());
-                assertFalse(button(vault, "Change Password…").isEnabled());
+                assertFalse(vault.changePassword.isEnabled());
                 assertFalse(button(browser, "Edit Alternative…").isEnabled());
                 assertFalse(button(browser, "Resolve Conflict…").isEnabled());
                 form.busy(true, "Changing vault password…");
@@ -31,7 +31,7 @@ class PasswordBrowserTest {
                 assertEquals(0, find(browser, JList.class).getSelectedIndex());
                 assertTrue(display.running()); display.tick(); assertFalse(second.calls.isEmpty());
                 form.retire(); vault.writeAvailability(true);
-                assertTrue(display.running()); assertTrue(button(vault, "Change Password…").isEnabled());
+                assertTrue(display.running()); assertTrue(vault.changePassword.isEnabled());
                 assertTrue(button(vault, "Create Token").isEnabled());
                 vault.closing(); assertFalse(display.running()); assertFalse(button(vault, "Refresh").isEnabled());
             } finally { form.retire(); vault.closing(); }

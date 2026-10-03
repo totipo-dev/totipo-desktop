@@ -11,6 +11,7 @@ import org.totipo.desktop.ui.LauncherView;
 import org.totipo.desktop.ui.VaultFrame;
 import org.totipo.desktop.ui.VaultView;
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -31,9 +32,12 @@ public final class DesktopApplication {
     private boolean shuttingDown;
     private boolean disposed;
     private int nextWindow;
+    private final VaultPreferences preferences;
+    private VaultWindowController replacing;
 
     public DesktopApplication() {
-        this(new NioVaultAccess(), new LauncherFrame(), VaultFrame::new);
+        this(new NioVaultAccess(), new LauncherFrame(), VaultFrame::new, new TotpClipboard(),
+                new JdkVaultPreferences());
     }
 
     DesktopApplication(VaultAccess access, LauncherView launcher, Function<Path, VaultView> windows) {
@@ -42,7 +46,17 @@ public final class DesktopApplication {
 
     DesktopApplication(VaultAccess access, LauncherView launcher, Function<Path, VaultView> windows,
                        TotpClipboard clipboard) {
+        this(access, launcher, windows, clipboard, new VaultPreferences() {
+            public java.util.Optional<Path> lastVault() { return java.util.Optional.empty(); }
+            public void setLastVault(Path path) { }
+            public void clearLastVault() { }
+        });
+    }
+
+    DesktopApplication(VaultAccess access, LauncherView launcher, Function<Path, VaultView> windows,
+                       TotpClipboard clipboard, VaultPreferences preferences) {
         Edt.require();
+        this.preferences = preferences;
         this.clipboard = clipboard;
         this.access = access;
         this.launcher = launcher;
@@ -53,10 +67,45 @@ public final class DesktopApplication {
 
     public void show() {
         Edt.require();
-        launcher.showWindow();
+        if (busy || shuttingDown) { return; }
+        var remembered = preferences.lastVault();
+        if (remembered.isEmpty()) {
+            launcher.showWindow();
+            return;
+        }
+        Path path = remembered.get();
+        busy = true;
+        launcher.busy("Finding previous vault…", true);
+        executor.execute(() -> {
+            boolean usable;
+            try {
+                usable = Files.isDirectory(path) && Files.isReadable(path) && Files.isExecutable(path);
+            } catch (SecurityException unavailable) {
+                usable = false;
+            }
+            boolean found = usable;
+            SwingUtilities.invokeLater(() -> {
+                if (shuttingDown) { finishOperation(); return; }
+                if (found) {
+                    busy = false;
+                    prompt(false, path);
+                } else {
+                    preferences.clearLastVault();
+                    launcher.showWindow();
+                    try {
+                        launcher.message("Previous vault unavailable",
+                                "The previously used vault could not be found. Choose a vault to continue.");
+                    } finally { finishOperation(); }
+                }
+            });
+        });
     }
 
     private void prompt(boolean create) {
+        prompt(create, null);
+    }
+
+    private void prompt(boolean create, Path remembered) {
         Edt.require();
         if (busy || shuttingDown) {
             return;
@@ -68,11 +117,11 @@ public final class DesktopApplication {
         char[] password = null;
         boolean handedOff = false;
         try {
-            Path directory = launcher.chooseDirectory();
+            Path directory = remembered == null ? launcher.chooseDirectory() : remembered;
             if (directory == null || shuttingDown) {
                 return;
             }
-            password = launcher.password(create);
+            password = launcher.password(directory.toAbsolutePath().normalize(), create);
             if (password == null || shuttingDown) {
                 return;
             }
@@ -181,8 +230,18 @@ public final class DesktopApplication {
                 return;
             }
             controllers.add(controller);
+            VaultWindowController previous = replacing;
+            view.changeVaultAction(() -> {
+                if (busy || shuttingDown) { return; }
+                replacing = controller;
+                launcher.showWindow();
+                prompt(false);
+            });
             try {
-                controller.start();
+                if (controller.start()) {
+                    preferences.setLastVault(directory);
+                    if (previous != null) { previous.close(); }
+                }
             } finally {
                 finishOperation();
             }
@@ -263,7 +322,10 @@ public final class DesktopApplication {
         busy = false;
         if (!shuttingDown) {
             launcher.busy("Choose an existing vault directory.", false);
+            if (controllers.isEmpty()) { launcher.showWindow(); }
+            else { launcher.hideWindow(); }
         }
+        replacing = null;
         finishShutdown();
     }
 
@@ -284,6 +346,7 @@ public final class DesktopApplication {
     private void controllerClosed(VaultWindowController controller) {
         Edt.require();
         controllers.remove(controller);
+        if (!shuttingDown && !busy && controllers.isEmpty()) { launcher.showWindow(); }
         finishShutdown();
     }
 

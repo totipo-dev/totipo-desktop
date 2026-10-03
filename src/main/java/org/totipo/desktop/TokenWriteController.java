@@ -7,7 +7,7 @@ import javax.swing.SwingUtilities;
 
 /** EDT workflow owner. The retry field is exclusively accessed by the session executor. */
 final class TokenWriteController {
-    private enum Outcome { SAVED, UNCERTAIN, FAILED, INTERNAL_FAILURE }
+    private enum Outcome { SAVED, UNCERTAIN, FAILED, INTERNAL_FAILURE, INTERNAL_PREPARATION_FAILURE }
     private final Executor executor;
     private final VaultView view;
     private final MutationGate gate;
@@ -70,7 +70,7 @@ final class TokenWriteController {
                     });
                 } else { acceptPartialResult((PartialSaveResult) result); }
             } catch (MergeWrites.InconsistentDraft mismatch) {
-                deliver(Outcome.INTERNAL_FAILURE, null, "Internal merge draft problem. Nothing was published.");
+                deliver(Outcome.INTERNAL_PREPARATION_FAILURE, null, "Internal merge draft problem. Nothing was published.");
             } catch (RuntimeException unexpected) {
                 deliver(Outcome.INTERNAL_FAILURE, null, "Internal merge operation problem; publication outcome could not be determined.");
             }
@@ -97,9 +97,11 @@ final class TokenWriteController {
                 if (review) {
                     TokenState token = base.token(id).orElse(null);
                     if (token != null && token.hasConflict() && token.alternatives().size() >= 2) { openMerge(base, token); }
-                    else { view.writeMessage("The supplied reviewed state no longer has a complete semantic conflict."); }
+                    else { view.writeWarning("The supplied reviewed state no longer has a complete semantic conflict.",
+                            "The token no longer has conflicting versions to resolve."); }
                 }
-                if (!cleaned) { view.writeMessage("Internal resolution cleanup error. Nothing from the discarded merge was published."); }
+                if (!cleaned) { view.writeWarning("Internal resolution cleanup error. Nothing from the discarded merge was published.",
+                        "The conflict resolution could not be discarded cleanly. Nothing from it was saved."); }
             });
         });
     }
@@ -183,12 +185,15 @@ final class TokenWriteController {
                     case UNRESOLVED_FIELDS -> "Required token fields were unresolved; this operation was not published.";
                     case SESSION_CLOSING -> throw new IllegalStateException("Handled above");
                 };
-                if (original) { finish(); view.writeMessage(message + " Review the observed conflict to start a new merge."); }
+                if (original) { finish(); view.writeWarning(message + " Review the observed conflict to start a new merge.",
+                        "The conflict resolution was not saved. Review the token and try again."); }
                 else if (merge) { mergeEditor.busy(false, message + " Re-enter a new secret if required before saving."); }
                 else { editor.busy(false, message + " Re-enter a new secret if required before saving."); }
             } else {
                 finish();
-                view.writeMessage(error);
+                view.writeWarning(error, outcome == Outcome.INTERNAL_PREPARATION_FAILURE
+                        ? "The change could not be prepared. Nothing was saved."
+                        : "The change could not be completed. It may already have been saved.");
             }
         });
     }
@@ -233,7 +238,8 @@ final class TokenWriteController {
                     if (!closing) {
                         abandoned = true;
                         finish();
-                        view.writeMessage("Internal retry operation failure. The earlier publication remains uncertain.");
+                        view.writeWarning("Internal retry operation failure. The earlier publication remains uncertain.",
+                                "The retry could not be completed. The earlier change may already have been saved.");
                     }
                 });
             }
@@ -253,7 +259,8 @@ final class TokenWriteController {
                 if (!closing) {
                     abandoned = true;
                     finish();
-                    if (cleanupFailed) { view.writeMessage("Internal operation cleanup failure; publication remains uncertain."); }
+                    if (cleanupFailed) { view.writeWarning("Internal operation cleanup failure; publication remains uncertain.",
+                            "The save operation could not be closed cleanly. The change may already have been saved."); }
                 }
             });
         });
