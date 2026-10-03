@@ -45,7 +45,8 @@ public final class MergeEditorPanel extends JPanel {
         Edt.require(); this.captured = captured; this.submit = submit; this.abandon = abandon;
         setLayout(new BorderLayout(8, 8));
         add(literal("This resolution is based on the token state observed when the merge editor was opened. "
-                + "Totipo will check for newly relevant information before publication. Alternative labels imply no priority."), BorderLayout.NORTH);
+                + "Totipo will check for newly relevant information before publication. Alternative labels imply no priority. "
+                + "TOMBSTONED means logical deletion; secrets and historical/provider copies are not erased."), BorderLayout.NORTH);
         add(new JScrollPane(body), BorderLayout.CENTER);
         JPanel footer = new JPanel(new BorderLayout());
         JPanel buttons = new JPanel();
@@ -74,7 +75,7 @@ public final class MergeEditorPanel extends JPanel {
             JCheckBox selected = new JCheckBox(captured.labels(List.of(alternative)), previous.contains(alternative));
             selections.add(selected); body.add(selected);
             TokenDescriptor d = alternative.descriptor();
-            body.add(literal(d.status() + " | Issuer: " + d.issuer() + " | Account: " + d.account()
+            body.add(literal(d.status() + " | Issuer: " + UntrustedText.display(d.issuer()) + " | Account: " + UntrustedText.display(d.account())
                     + " | " + d.algorithm() + " | " + d.digits() + " digits | " + d.period().getSeconds()
                     + " seconds\nHeads: " + alternative.heads().stream().map(h -> h.revision().toString()).toList()));
             selected.addActionListener(event -> selectionChanged());
@@ -134,10 +135,11 @@ public final class MergeEditorPanel extends JPanel {
         final Function<String, T> parse;
         Field(CompetingField<T> competition, List<T> allowed, Function<String, T> parse, Function<T, String> format) {
             this.parse = parse;
+            custom.getDocument().putProperty("filterNewlines", Boolean.FALSE);
             DefaultListCellRenderer renderer = new DefaultListCellRenderer();
             renderer.putClientProperty("html.disable", Boolean.TRUE); choice.setRenderer(renderer);
             for (var value : competition.values()) {
-                values.add(value.value()); choice.addItem(format.apply(value.value()) + " — " + frozen.labels(value.alternatives()));
+                values.add(value.value()); choice.addItem(UntrustedText.display(format.apply(value.value())) + " — " + frozen.labels(value.alternatives()));
             }
             for (T value : allowed) { if (!values.contains(value)) { values.add(value); choice.addItem(format.apply(value)); } }
             if (parse != null) { choice.addItem("Other…"); }

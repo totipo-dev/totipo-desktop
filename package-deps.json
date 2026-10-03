@@ -60,15 +60,15 @@
    "module": "sha256-SL8dbItdyU90ZSvReQD2VN63FDUCSM9ej8onuQkMjg0=",
    "pom": "sha256-m/fP/EEPPoNywlIleN+cpW2dQ72TfjCUhwbCMqlDs1U="
   },
-  "totipo#totipo-core/0.1.0": {
-   "jar": "sha256-zcNLdsOYldQhtsDh+kFhk1QbiMdYquTS3K7ogeXFyhM=",
-   "module": "sha256-bxCpFrVxCNsSBSE/Rk74VadKE8sJ3HC1kL6mndI8k3s=",
-   "pom": "sha256-NbCw+lb7O01ek3K/yyA6ZO4xEZVU4oA6Nm9gNrJnEL0="
+  "totipo#totipo-core/0.1.1": {
+   "jar": "sha256-ihAPRY+iNLuFoghTehEG6zdv7XAiFfyKXSfgvZaBXIc=",
+   "module": "sha256-+9fUzEHhwYOlKIkGQ+ekocp8bKVkY54mLGQRvXfqUzE=",
+   "pom": "sha256-bLE9AizO7Gc3lEl7/QkrjLhHdPMOzTshoxlN7dvhvmY="
   },
-  "totipo#totipo-storage-nio/0.1.0": {
-   "jar": "sha256-jFXvDs9nyI5H0NKD3EMS8nMQDNlW4ybFOzVeRuiJ7z4=",
-   "module": "sha256-q/0RAJQrl8l8PZoNSNJNDVZVpEvv7VzzBogpxnHMGU8=",
-   "pom": "sha256-zue0kSS1QYLGhZXeC/yIuAwh2KOzH3rfE8ndDb8S668="
+  "totipo#totipo-storage-nio/0.1.1": {
+   "jar": "sha256-aRtWyIMfcdr7fVy299aO5ZyfQsW7GcKclFXhklI3M04=",
+   "module": "sha256-MTRLqXqtet4L8snjfRcVuOLvlH4P8bv3e+QG1alyx/o=",
+   "pom": "sha256-CTEKJTguxK36jy0vBg3bEhBWjGin/t3r/vpUViQr9io="
   }
  }
 }

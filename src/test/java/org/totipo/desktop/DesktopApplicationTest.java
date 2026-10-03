@@ -15,6 +15,37 @@ import static org.junit.jupiter.api.Assertions.*;
 class DesktopApplicationTest {
     private static final Path DIRECTORY = Path.of("selected-directory");
 
+    @Test void emptyPasswordCreationRequiresExplicitDecisionButOpenDoesNot() throws Exception {
+        for (boolean create : new boolean[] {false, true}) {
+            for (boolean confirm : new boolean[] {false, true}) {
+                Access access = new Access();
+                Launcher launcher = new Launcher(); launcher.allowEmptyPassword = confirm;
+                DesktopApplication app = onEdt(() -> new DesktopApplication(access, launcher, path -> new Window()));
+                try {
+                    edt(() -> app.begin(DIRECTORY, new char[0], create));
+                    await(launcher.ready);
+                    assertEquals(create ? 1 : 0, launcher.emptyConfirmations);
+                    assertEquals(create && confirm ? 1 : 0, access.creates.get());
+                    assertEquals(create ? 0 : 1, access.opens.get());
+                } finally { edt(app::shutdown); await(launcher.disposed); }
+            }
+        }
+    }
+
+    @Test void shutdownAndReentrantActionsDuringEmptyConfirmationCannotCreate() throws Exception {
+        Access access = new Access(); Launcher launcher = new Launcher(); launcher.allowEmptyPassword = true;
+        DesktopApplication app = onEdt(() -> new DesktopApplication(access, launcher, path -> new Window()));
+        launcher.duringEmptyConfirmation = () -> {
+            app.begin(DIRECTORY, new char[0], true);
+            app.shutdown();
+        };
+        edt(() -> app.begin(DIRECTORY, new char[0], true));
+        await(launcher.disposed);
+        assertEquals(1, launcher.emptyConfirmations);
+        assertEquals(0, access.creates.get());
+        assertTrue(app.executorShutdown());
+    }
+
     private static final class Access implements VaultAccess {
         final AtomicInteger opens = new AtomicInteger();
         final AtomicInteger creates = new AtomicInteger();

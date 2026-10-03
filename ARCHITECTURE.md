@@ -5,8 +5,8 @@ M2b added explicit field-oriented merge and frozen-resolution decisions to M2a
 manual token create/update and explicit publication retry/abandonment, building on
 M1a session/window lifecycle, observation/diagnostics and refresh, and M1b
 logical-token/TOTP browsing. The single-project Swing application consumes
-released Maven modules: desktop -> `org.totipo:totipo-storage-nio:0.1.0` ->
-`org.totipo:totipo-core:0.1.0`. Desktop does not build Java core/storage from
+released Maven modules: desktop -> `org.totipo:totipo-storage-nio:0.1.1` ->
+`org.totipo:totipo-core:0.1.1`. Desktop does not build Java core/storage from
 source. `org.totipo.storage.nio.NioTotipo` remains the filesystem entry point;
 `VaultSession`, `VaultState` and other `org.totipo` application APIs remain the
 core boundary. Desktop never consumes storage SPI or implementation internals.
@@ -59,6 +59,15 @@ The package-private `VaultAccess` seam has only `open(Path, char[])` and
 substitute lifecycle outcomes without KDF or filesystem work. No protocol or
 storage-provider behavior is reproduced in this seam.
 
+The high-level `NioTotipo.create` result exposes no pre-creation orphan context.
+Java exposes that context only through the experimental `NioTotipoStore`/storage
+SPI. Adding provider observation, ownership and asynchronous confirmation to this
+seam would extend the current architecture; it is deferred for human review.
+Desktop currently does not observe `objects-v1` names before creation and therefore
+does not provide the recommended observation-triggered orphan warning. Names are
+unauthenticated and must never become an automatic creation veto. README creation
+guidance is not a claim that this safeguard is implemented.
+
 Each controller owns a separate single-thread executor named `totipo-session-N`.
 It runs token builder factory/setters/save/close, publication retry/capability
 cleanup, password change, and session close. Blocking open, create, password change
@@ -84,7 +93,10 @@ cleared when dismissed. Cancellation/rejection wipes any retrieved primary array
 
 `PasswordInput` validates UTF-16 and counts UTF-8 bytes without an encoded copy.
 It rejects unpaired surrogates and more than 1024 UTF-8 bytes. Empty input and all
-other valid Unicode within the limit are accepted; there is no extra password policy.
+other valid Unicode within the limit are accepted. Creating with an empty password
+requires a separate explicit warning/confirmation, with Cancel as the default.
+The application reserves the launcher during this dialog and rechecks shutdown.
+Opening an existing empty-password vault requires no creation confirmation.
 Once accepted for background work, the operation owns the primary array and wipes
 it in `finally`, whether NIO returns a session, another outcome, or throws. This is
 best-effort JVM secret hygiene, not a secure-erasure guarantee. No passwords are
@@ -213,7 +225,11 @@ One row represents one logical token. Complete semantic alternatives, including
 secret-only differences, determine conflict; equal-valued multiple heads do not.
 Selection follows TokenId across immutable projections. Alternative labels express
 no preference. Incomplete observations retain their unresolved evidence and never
-invent an editable value. Stored issuer/account/metadata render literally.
+invent an editable value. Stored issuer/account/metadata render literally with
+display-only escapes for backslashes, control characters and direction/format
+characters. List and merge-choice renderers disable HTML. Editing retains exact
+model strings, including embedded newlines; text-field newline filtering is
+disabled so an ordinary update cannot silently replace them with spaces.
 
 TOTP uses the public state/alternative operation and core-returned half-open time
 intervals. A coalescing Swing timer updates the display; opening an editor does

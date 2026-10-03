@@ -114,6 +114,19 @@ public final class DesktopApplication {
         }
         busy = true;
         launcher.busy(create ? "Creating vault…" : "Opening vault…", true);
+        if (create && password.length == 0) {
+            boolean confirmed = false;
+            try {
+                confirmed = launcher.confirmEmptyPassword();
+            } finally {
+                // A modal confirmation can process shutdown/reentrant launcher actions.
+                if (!confirmed || shuttingDown) {
+                    Arrays.fill(password, '\0');
+                    finishOperation();
+                }
+            }
+            if (!confirmed || shuttingDown) { return; }
+        }
         executor.execute(() -> {
             OpenResult opened = null;
             CreateVaultResult created = null;

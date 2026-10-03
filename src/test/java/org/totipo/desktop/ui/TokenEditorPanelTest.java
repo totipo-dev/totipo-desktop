@@ -9,6 +9,19 @@ import static org.totipo.desktop.TestSupport.edt;
 import static org.junit.jupiter.api.Assertions.*;
 
 class TokenEditorPanelTest {
+    @Test void existingUntrustedFieldsRoundTripWithoutNewlineFilteringOrNormalization() throws Exception {
+        edt(() -> {
+            var descriptor = new TokenDescriptor(TokenStatus.ACTIVE, "  <html>issuer\n\0e\u0301\\  ",
+                    "Account\r\n\t\u202E", TotpAlgorithm.SHA1, 6, Duration.ofSeconds(30));
+            AtomicInteger submits = new AtomicInteger();
+            var panel = new TokenEditorPanel(descriptor, "Update", draft -> {
+                submits.incrementAndGet(); draft.close();
+            }, () -> {});
+            assertEquals(descriptor.issuer(), panel.issuer.getText());
+            assertEquals(descriptor.account(), panel.account.getText());
+            panel.save.doClick(); assertEquals(1, submits.get()); panel.retire();
+        });
+    }
     @Test void defaultsRequiredSecretValidationAndSingleSubmission() throws Exception {
         edt(() -> {
             AtomicInteger submits = new AtomicInteger();

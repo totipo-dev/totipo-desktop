@@ -39,7 +39,7 @@ tasks.withType<Test>().configureEach {
     systemProperty("java.awt.headless", "true")
 }
 
-val totipoJavaVersion = "0.1.0"
+val totipoJavaVersion = "0.1.1"
 dependencies {
     implementation("org.totipo:totipo-storage-nio:$totipoJavaVersion")
     testImplementation(platform("org.junit:junit-bom:6.1.3"))

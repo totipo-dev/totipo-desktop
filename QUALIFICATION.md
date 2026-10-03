@@ -7,11 +7,17 @@ Build success, headless component tests and source inspection are not native GUI
 or clipboard qualification.
 
 The previously recorded filesystem qualification used the old source-consumed
-Java implementation. Released Java 0.1.0 is intended to be semantically equivalent,
-but D1 compilation/testing does not constitute new filesystem qualification.
+Java implementation. Released Java 0.1.1 targets v1/r18 with unchanged portable semantics;
+the M4b dependency repin and headless tests do not constitute new filesystem qualification.
 Rerun the harness against a candidate package during later release qualification.
-Prior Nix build evidence below predates D1; the migrated package awaits operator
-dependency-cache regeneration and validation.
+Prior Nix build evidence below predates the released-dependency migration; the
+0.1.1 dependency cache has passed human-operated regeneration and diff review;
+human-operated x86_64-linux flake check/build/rebuild passed. Supplied package/JAR
+inventory and hash review passed. The operator reported successful packaged
+launch and a quick smoke test; this does not complete the native GUI, clipboard
+or accessibility qualification checklists.
+See [the M4b repin report](review/M4B_TOTIPO_JAVA_0_1_1_R18_REPIN_REPORT.md) for
+current source/build/package evidence. Native qualification remains unchanged.
 
 | OS/distribution | Architecture | Desktop/window manager | Java runtime | Filesystem | Route | GUI smoke | Clipboard smoke | Filesystem qualification | Result/date | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |

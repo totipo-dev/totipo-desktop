@@ -113,7 +113,9 @@ class PasswordChangeTest {
                 "Caller buffer must be wiped");
     }
     static String message(PasswordChangePanel panel) {
-        return components(panel).stream().filter(JTextArea.class::isInstance).map(JTextArea.class::cast).findFirst().orElseThrow().getText();
+        return components(panel).stream().filter(JTextArea.class::isInstance).map(JTextArea.class::cast)
+                .filter(area -> "Password change status".equals(area.getAccessibleContext().getAccessibleName()))
+                .findFirst().orElseThrow().getText();
     }
 
     @ParameterizedTest @EnumSource(PasswordChangeResult.class)

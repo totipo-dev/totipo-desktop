@@ -9,7 +9,7 @@ A green Gradle build alone cannot pass this checklist.
 ## Source/repository
 
 - [ ] Clean worktree and reviewed release commit; no untracked packaging inputs.
-- [ ] Exact `org.totipo:totipo-storage-nio:0.1.0` locked; core is transitive `org.totipo:totipo-core:0.1.0`; protocol v1/r17 confirmed.
+- [ ] Exact `org.totipo:totipo-storage-nio:0.1.1` locked; core is transitive `org.totipo:totipo-core:0.1.1`; protocol v1/r18 confirmed.
 - [ ] Gradle verification hashes and released provenance in TOTIPO_JAVA_DEPENDENCY.md reviewed.
 - [ ] VERSION contains the intended version and is **not `0.0.0-dev`**.
 - [ ] `./gradlew validateVersion -PreleaseBuild=true` passes; intended tag equals VERSION.

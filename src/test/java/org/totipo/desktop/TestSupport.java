@@ -112,6 +112,9 @@ public final class TestSupport {
         Runnable duringMessage = () -> { };
         Runnable duringDirectory = () -> { };
         Runnable duringPassword = () -> { };
+        Runnable duringEmptyConfirmation = () -> { };
+        boolean allowEmptyPassword;
+        int emptyConfirmations;
         boolean busy;
         char[] password = {'p'};
         Path directory = Path.of("existing-directory");
@@ -120,6 +123,10 @@ public final class TestSupport {
         }
         @Override public Path chooseDirectory() { Edt.require(); duringDirectory.run(); return directory; }
         @Override public char[] password(boolean create) { Edt.require(); duringPassword.run(); return password; }
+        @Override public boolean confirmEmptyPassword() {
+            Edt.require(); assertTrue(busy); emptyConfirmations++;
+            duringEmptyConfirmation.run(); return allowEmptyPassword;
+        }
         @Override public void busy(String text, boolean value) {
             Edt.require(); busy = value;
             if (!value) { ready.countDown(); }

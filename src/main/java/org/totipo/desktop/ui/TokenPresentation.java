@@ -29,7 +29,7 @@ final class TokenPresentation {
     private static String single(CompetingField<?> field, String name) {
         return switch (field.values().size()) {
             case 0 -> "[unavailable " + name + "]";
-            case 1 -> field.values().get(0).value().toString();
+            case 1 -> UntrustedText.display(field.values().get(0).value().toString());
             default -> "[conflicting " + name + "]";
         };
     }
@@ -51,8 +51,8 @@ final class TokenPresentation {
             TokenAlternative alternative = alternatives.get(i);
             TokenDescriptor d = alternative.descriptor();
             out.append('\n').append(label(i)).append('\n')
-                    .append("Status: ").append(d.status()).append("\nIssuer: ").append(d.issuer())
-                    .append("\nAccount: ").append(d.account()).append("\nAlgorithm: ").append(d.algorithm())
+                    .append("Status: ").append(d.status()).append("\nIssuer: ").append(UntrustedText.display(d.issuer()))
+                    .append("\nAccount: ").append(UntrustedText.display(d.account())).append("\nAlgorithm: ").append(d.algorithm())
                     .append("\nDigits: ").append(d.digits()).append("\nPeriod: ").append(d.period()).append('\n');
             out.append("Carried by current causal heads:\n");
             alternative.heads().forEach(head -> out.append(head.revision().hex()).append('\n'));
@@ -77,7 +77,7 @@ final class TokenPresentation {
         out.append("\nTechnical details — current causal heads\n");
         for (TokenHead head : token.heads()) {
             out.append(head.revision().hex()).append('\n');
-            head.metadata().clientName().ifPresent(name -> out.append("Client-provided name: ").append(name).append('\n'));
+            head.metadata().clientName().ifPresent(name -> out.append("Client-provided name: ").append(UntrustedText.display(name)).append('\n'));
             head.metadata().clientTimeBits().ifPresent(bits -> out.append("Client-provided raw unsigned time: ")
                     .append(Long.toUnsignedString(bits)).append('\n'));
         }
@@ -91,7 +91,7 @@ final class TokenPresentation {
                               List<TokenAlternative> all) {
         out.append(name).append(field.disagrees() ? " (competing):\n" : ":\n");
         if (field.values().isEmpty()) { out.append("No complete observed value\n"); }
-        field.values().forEach(value -> out.append(value.value()).append(" — ")
+        field.values().forEach(value -> out.append(UntrustedText.display(value.value().toString())).append(" — ")
                 .append(labels(value.alternatives(), all)).append('\n'));
     }
 

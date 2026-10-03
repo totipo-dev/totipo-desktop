@@ -56,12 +56,31 @@ normal merge publication and offers fresh review, cancellation, or explicitly
 confirmed publication of the frozen original resolution. The latter may leave
 competing alternatives.
 
+Tombstoning is logical deletion: tombstones and immutable history retain secrets,
+and storage/synchronization providers may retain copies. Password change rewraps
+the same root key; it does not rotate the root, revoke old bootstrap copies,
+provide rollback protection, or recover from root compromise.
+
+Creating with an empty password requires a separate explicit confirmation.
+Existing empty-password vaults remain readable. Possession of the vault bootstrap
+permits offline password guessing; Argon2id raises its cost, not its possibility.
+Before creating in a location with object-looking files but a missing `vault`,
+check synchronization/provider state and look for the missing bootstrap. Such
+unauthenticated names cannot prove identity or recoverability and do not veto
+creation. Desktop's high-level NIO create path currently provides no orphan
+context; an observation-triggered warning/confirmation remains a deferred r18
+application safeguard, detailed in the M4b report.
+
+Issuer/account/client text is rendered literally; control/direction characters
+and backslashes use visible escapes in browsing and merge choices. Original model
+values remain exact for storage and editing, without trimming or normalization.
+
 Publication uncertainty offers **Retry exact publication** or **Stop retrying**.
 Stopping releases the retry capability and leaves a persistent warning for that
 open session: publication may already have occurred. Starting Create again makes
 a distinct token, not a retry. Acknowledged publication and finished local
 observation do not mean synchronization, freshness or complete history.
-Protocol target: Totipo Vault Format **v1/r17**, through released Totipo Java 0.1.0.
+Protocol target: Totipo Vault Format **v1/r18**, through released Totipo Java 0.1.1.
 Local configured-store acknowledgement is not remote synchronization or rollback
 protection. Provider qualification remains limited; local NIO integration tests do
 not establish guarantees for arbitrary filesystems or remote providers.
@@ -73,8 +92,8 @@ git clone https://github.com/totipo-org/totipo-desktop.git
 cd totipo-desktop
 ```
 
-Gradle resolves `org.totipo:totipo-storage-nio:0.1.0` and its transitive
-`org.totipo:totipo-core:0.1.0` from Maven Central. Internet access is needed
+Gradle resolves `org.totipo:totipo-storage-nio:0.1.1` and its transitive
+`org.totipo:totipo-core:0.1.1` from Maven Central. Internet access is needed
 for first resolution unless dependencies are already cached or Nix-provided.
 
 Build with **JDK 25** in `JAVA_HOME` (toolchain auto-download is disabled).
@@ -138,7 +157,7 @@ unreleased development state. `./gradlew validateVersion -PreleaseBuild=true`
 intentionally fails until an actual candidate version replaces the sentinel.
 Missing, empty, whitespace-bearing, or unsafe filename versions fail configuration.
 
-### Nix package — dependency cache awaits operator regeneration
+### Nix package — human build validation passed
 
 The flake exposes a Linux-only package using the full pinned `jdk25`, Gradle 9
 and the same `installDist`. Existing dev-shell/jailed-agent inputs remain intact.
@@ -159,13 +178,17 @@ Java configuration. The desktop entry is Totipo / Utility / Terminal=false, with
 no handlers, autostart or placeholder icon. Vaults remain user-selected paths;
 installation directories are never vault storage.
 
-**D1 status:** Nix dependency cache regeneration required by operator.
-`package-deps.json` is retained unchanged as stale pre-D1 evidence. The package
-fails closed outside cache regeneration until the cache contains the locked
-released Totipo Maven artifacts. No Nix command was run for D1 and the migrated
-Nix package is not yet validated. Prior operator build evidence remains in the
-M4a report; it does not validate this migration. Native qualification remains
-UNQUALIFIED. Do not hand-edit dependency hashes.
+**M4b repin status:** Human-operated Nix dependency-cache regeneration passed.
+The reviewed generated `package-deps.json` contains the released Totipo 0.1.1
+JAR/module/POM hashes, retains BC 1.86, and has no unrelated dependency changes.
+Human-operated x86_64-linux flake check, build and forced rebuild passed;
+the full supplied package inventory has the expected files, and all four JAR
+hashes match the verified Gradle distribution. The operator also reported a
+successful launch and quick smoke test. Native qualification remains separate.
+No Nix command was run by the agent. Current evidence and qualification limits
+are in [the M4b report](review/M4B_TOTIPO_JAVA_0_1_1_R18_REPIN_REPORT.md).
+Prior M4a package evidence does not validate this repin. Native qualification
+remains UNQUALIFIED. Do not hand-edit dependency hashes.
 
 From the repository root, generate/refresh using the official update script:
 
@@ -187,8 +210,8 @@ nix build --rebuild path:.
 Substitute `aarch64-linux` only when qualifying that system. For this uncommitted
 review, `path:.` includes uncommitted/untracked migration files that Git-based
 flake sources can omit. Do not update `flake.lock` or Gradle verification hashes
-just to make the build pass. Review `package-deps.json`: it should add the released
-Totipo artifacts, retain BC, and no longer need Java conformance-test dependencies.
+just to make the build pass. Review `package-deps.json`: it should match the locked
+released Totipo artifacts, retain BC 1.86, and leave unrelated dependencies unchanged.
 The update task runs desktop checks and distribution verification only.
 An ordinary second build proves cache reuse; the forced rebuild is separate.
 MITM transport does not waive Gradle's artifact hash verification.

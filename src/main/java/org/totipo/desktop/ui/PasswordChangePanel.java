@@ -32,7 +32,12 @@ public final class PasswordChangePanel extends JPanel {
         fields.add(SwingUsability.label("New password", next)); fields.add(next);
         fields.add(SwingUsability.label("Confirm new password", confirmation)); fields.add(confirmation);
         JPanel buttons = new JPanel(); buttons.add(change); buttons.add(cancel);
-        add(fields, BorderLayout.NORTH); add(message, BorderLayout.CENTER); add(buttons, BorderLayout.SOUTH);
+        JTextArea explanation = new JTextArea("Password change rewraps the same root key. It does not rotate the root, "
+                + "revoke old bootstrap copies, protect against rollback, or recover from root compromise.");
+        explanation.setEditable(false); explanation.setLineWrap(true); explanation.setWrapStyleWord(true);
+        JPanel entry = new JPanel(new BorderLayout(8, 8));
+        entry.add(explanation, BorderLayout.NORTH); entry.add(fields, BorderLayout.CENTER);
+        add(entry, BorderLayout.NORTH); add(message, BorderLayout.CENTER); add(buttons, BorderLayout.SOUTH);
         change.setMnemonic('H'); cancel.setMnemonic('C');
         message.getAccessibleContext().setAccessibleName("Password change status");
         change.addActionListener(event -> {

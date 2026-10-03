@@ -14,7 +14,7 @@ let
   version = if lib.hasSuffix "\r\n" rawVersion then lib.removeSuffix "\r\n" rawVersion else lib.removeSuffix "\n" rawVersion;
   cacheData = builtins.fromJSON (builtins.readFile ./package-deps.json);
   centralCache = cacheData."https://repo.maven.apache.org/maven2/org" or { };
-  # The old source-build cache is stale until the operator regenerates it.
+  # The dependency cache is stale after a repin until the operator regenerates it.
   # Match the actual locked modules so a future dependency update also fails closed.
   totipoLocks = builtins.filter (line: lib.hasPrefix "org.totipo:" line)
     (lib.splitString "\n" (builtins.readFile ./gradle.lockfile));
@@ -118,8 +118,8 @@ stdenv.mkDerivation (finalAttrs: {
     grep -F -- '-XX:+DisableAttachMechanism' "$out/lib/totipo-desktop/bin/totipo-desktop-unwrapped"
     test "$(find "$out/lib/totipo-desktop/lib" -type f -name '*.jar' | wc -l)" -eq 4
     test -f "$out/lib/totipo-desktop/lib/totipo-desktop-${version}.jar"
-    test -f "$out/lib/totipo-desktop/lib/totipo-storage-nio-0.1.0.jar"
-    test -f "$out/lib/totipo-desktop/lib/totipo-core-0.1.0.jar"
+    test -f "$out/lib/totipo-desktop/lib/totipo-storage-nio-0.1.1.jar"
+    test -f "$out/lib/totipo-desktop/lib/totipo-core-0.1.1.jar"
     test -f "$out/lib/totipo-desktop/lib/bcprov-jdk18on-1.86.jar"
     for jar in build/install/totipo-desktop/lib/*.jar; do
       cmp "$jar" "$out/lib/totipo-desktop/lib/$(basename "$jar")"

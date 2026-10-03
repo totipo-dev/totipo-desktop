@@ -37,6 +37,17 @@ public final class LauncherFrame extends JFrame implements LauncherView {
                 ? chooser.getSelectedFile().toPath() : null;
     }
     @Override public char[] password(boolean create) { return PasswordPrompt.ask(this, create); }
+    @Override public boolean confirmEmptyPassword() {
+        Edt.require();
+        Object[] options = {"Create with empty password", "Cancel"};
+        return JOptionPane.showOptionDialog(this,
+                "An empty password provides no password secrecy.\n"
+                + "Anyone with the vault bootstrap can try passwords offline;\n"
+                + "Argon2id increases guessing cost but does not prevent guessing.\n"
+                + "Create this vault with an empty password?",
+                "Confirm empty vault password", JOptionPane.DEFAULT_OPTION,
+                JOptionPane.WARNING_MESSAGE, null, options, options[1]) == 0;
+    }
     @Override public void busy(String text, boolean busy) { panel.busy(text, busy); }
     @Override public void message(String title, String text) {
         Edt.require();

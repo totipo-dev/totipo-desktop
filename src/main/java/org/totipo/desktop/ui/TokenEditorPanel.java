@@ -32,6 +32,9 @@ public final class TokenEditorPanel extends JPanel {
                             Consumer<TokenDraft> submit, Runnable abandon) {
         Edt.require();
         create = descriptor == null;
+        // JTextField otherwise replaces stored newlines with spaces during prefill.
+        issuer.getDocument().putProperty("filterNewlines", Boolean.FALSE);
+        account.getDocument().putProperty("filterNewlines", Boolean.FALSE);
         setLayout(new BorderLayout(8, 8));
         setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
         JPanel fields = new JPanel(new GridLayout(0, 2, 8, 8));
@@ -56,7 +59,8 @@ public final class TokenEditorPanel extends JPanel {
             if (!replace.isSelected()) { secret.setText(""); }
             secret.setEnabled(replace.isSelected() && !busy && !retired);
         });
-        JTextArea note = new JTextArea(explanation);
+        JTextArea note = new JTextArea(explanation + "\nTOMBSTONED means logical deletion. "
+                + "Secrets remain in tombstones and immutable history; provider copies are not erased.");
         note.setEditable(false); note.setLineWrap(true); note.setWrapStyleWord(true);
         note.setRows(5);
         add(note, BorderLayout.NORTH);
